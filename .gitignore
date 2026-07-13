@@ -1,0 +1,28 @@
+# --- Backend (Java/Maven) ---
+backend/target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# --- AI Worker (Python) ---
+ai-worker/venv/
+ai-worker/__pycache__/
+ai-worker/**/__pycache__/
+*.pyc
+.env
+
+# --- Frontend (Node) ---
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# --- Infra runtime data ---
+infra/pgdata/
