@@ -1,0 +1,43 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: cv-screening-backend
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:cvscreening}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+app:
+  jwt:
+    # Doi secret nay khi deploy that (>= 32 ky tu)
+    secret: ${JWT_SECRET:cv-screening-secret-key-change-me-in-production-2026}
+    expiration-ms: ${JWT_EXPIRATION:86400000}   # 24h
+  aws:
+    region: ${AWS_REGION:ap-southeast-1}
+    access-key: ${AWS_ACCESS_KEY_ID:minioadmin}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:minioadmin}
+    # Khi chay local: tro ve MinIO / ElasticMQ. Khi deploy AWS that: dat S3_ENDPOINT/SQS_ENDPOINT = rong
+    s3-endpoint: ${S3_ENDPOINT:http://localhost:9000}
+    sqs-endpoint: ${SQS_ENDPOINT:http://localhost:9324}
+    bucket: ${S3_BUCKET:cv-bucket}
+    queue-name: ${SQS_QUEUE:cv-processing-queue}
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.cvscreening: INFO
