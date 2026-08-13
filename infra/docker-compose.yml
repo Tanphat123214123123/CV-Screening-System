@@ -1,0 +1,83 @@
+# Ha tang chay local — mo phong day du AWS (S3 -> MinIO, SQS -> ElasticMQ)
+# Chay:  docker compose up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cvs-postgres
+    environment:
+      POSTGRES_DB: cvscreening
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # S3-compatible storage cho moi truong dev
+  minio:
+    image: minio/minio:latest
+    container_name: cvs-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - miniodata:/data
+
+  # Tao san bucket cv-bucket khi khoi dong
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb --ignore-existing local/cv-bucket;
+      exit 0;
+      "
+
+  # SQS-compatible queue cho moi truong dev
+  elasticmq:
+    image: softwaremill/elasticmq-native:latest
+    container_name: cvs-elasticmq
+    ports:
+      - "9324:9324"
+    volumes:
+      - ./elasticmq.conf:/opt/elasticmq.conf
+
+  # ==== 2 service duoi day: bo comment neu muon chay backend + worker bang Docker ====
+  # backend:
+  #   build: ../backend
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     DB_HOST: postgres
+  #     S3_ENDPOINT: http://minio:9000
+  #     SQS_ENDPOINT: http://elasticmq:9324
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
+  # ai-worker:
+  #   build: ../ai-worker
+  #   environment:
+  #     DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/cvscreening
+  #     S3_ENDPOINT: http://minio:9000
+  #     SQS_ENDPOINT: http://elasticmq:9324
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
+volumes:
+  pgdata:
+  miniodata:
