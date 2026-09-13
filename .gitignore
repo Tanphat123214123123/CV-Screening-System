@@ -8,6 +8,7 @@ backend/target/
 ai-worker/venv/
 ai-worker/__pycache__/
 ai-worker/**/__pycache__/
+ai-worker/.pytest_cache/
 *.pyc
 .env
 
@@ -16,10 +17,14 @@ frontend/node_modules/
 frontend/dist/
 frontend/.env
 frontend/.env.local
+frontend/*.tsbuildinfo
 
 # --- IDE / OS ---
 .idea/
 .vscode/
+.settings/
+.project
+.classpath
 *.iml
 .DS_Store
 Thumbs.db
