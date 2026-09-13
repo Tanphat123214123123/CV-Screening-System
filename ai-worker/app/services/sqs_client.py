@@ -23,7 +23,10 @@ def get_queue_url() -> str:
     return sqs.create_queue(QueueName=config.SQS_QUEUE)["QueueUrl"]
 
 
-def receive_messages(queue_url: str, max_messages: int = 5):
+def receive_messages(queue_url: str, max_messages: int = 1):
+    # Worker xu ly tuan tu, moi message co the mat vai chuc giay (goi LLM).
+    # Lay nhieu message mot luc de trong khi cho den luot se de bi het
+    # visibility timeout va bi phat lai (xu ly trung) -> mac dinh lay tung cai mot.
     response = sqs.receive_message(
         QueueUrl=queue_url,
         MaxNumberOfMessages=max_messages,
