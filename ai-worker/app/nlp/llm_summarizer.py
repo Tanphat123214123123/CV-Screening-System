@@ -4,6 +4,7 @@ Chi chay khi bien moi truong ANTHROPIC_API_KEY duoc thiet lap.
 Neu goi API loi -> tu dong fallback ve summary rule-based, pipeline khong bi gian doan.
 """
 import json
+import re
 
 import requests
 
@@ -59,7 +60,9 @@ def generate_summary(job: dict, cv_text: str) -> str | None:
             for block in response.json().get("content", [])
             if block.get("type") == "text"
         )
-        data = json.loads(text.strip().removeprefix("```json").removesuffix("```").strip())
+        # Bo code fence bat ky dang ```json / ```JSON / ``` (khong chi rieng "```json")
+        cleaned = re.sub(r"^```[a-zA-Z]*\n?|```$", "", text.strip()).strip()
+        data = json.loads(cleaned)
         return data.get("summary")
     except Exception as exc:  # noqa: BLE001 - fallback co chu dich
         print(f"[LLM] Loi goi API, dung summary rule-based: {exc}")

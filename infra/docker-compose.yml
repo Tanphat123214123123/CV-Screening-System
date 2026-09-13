@@ -10,7 +10,10 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      # Map ra 5433 (khong phai 5432 mac dinh) vi nhieu may Windows/macOS da
+      # co san mot PostgreSQL native chay nhu service, chiem san cong 5432.
+      # Ket noi tu backend chay local: dat DB_PORT=5433.
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -20,8 +23,10 @@ services:
       retries: 10
 
   # S3-compatible storage cho moi truong dev
+  # Luu y: dung quay.io thay vi Docker Hub — tu 2024 MinIO gioi han pull anonymous
+  # tren Docker Hub (minio/minio, minio/mc), quay.io la kenh phan phoi chinh thuc con lai.
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: cvs-minio
     command: server /data --console-address ":9001"
     environment:
@@ -35,7 +40,7 @@ services:
 
   # Tao san bucket cv-bucket khi khoi dong
   minio-init:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:latest
     depends_on:
       - minio
     entrypoint: >

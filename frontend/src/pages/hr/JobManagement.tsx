@@ -27,8 +27,13 @@ export default function JobManagement() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Đóng tin tuyển dụng này?')) return;
-    await deleteJob(id);
-    load();
+    setError('');
+    try {
+      await deleteJob(id);
+      load();
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? 'Đóng tin thất bại');
+    }
   };
 
   const inputClass =
@@ -45,6 +50,8 @@ export default function JobManagement() {
           {showForm ? 'Đóng' : '+ Đăng tin mới'}
         </button>
       </div>
+
+      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {showForm && (
         <div className="mb-6 space-y-3 rounded-xl bg-white p-5 shadow-sm">
@@ -73,7 +80,6 @@ export default function JobManagement() {
             onChange={(e) => setForm({ ...form, location: e.target.value })}
             className={inputClass}
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             onClick={handleCreate}
             className="rounded-lg bg-amber px-4 py-2 text-sm font-bold text-ink hover:opacity-90"

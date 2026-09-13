@@ -11,26 +11,40 @@ export default function CandidateReview() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    getJobs().then((data) => {
-      setJobs(data);
-      if (data.length > 0) setSelectedJobId(data[0].id);
-    });
+    getJobs()
+      .then((data) => {
+        setJobs(data);
+        if (data.length > 0) setSelectedJobId(data[0].id);
+      })
+      .catch((err) => setError(err.response?.data?.message ?? 'Không tải được danh sách tin tuyển dụng'));
   }, []);
 
   useEffect(() => {
     if (selectedJobId === null) return;
+    let timer: ReturnType<typeof setInterval> | undefined;
     const load = () =>
       getCandidatesForJob(selectedJobId)
-        .then((data) => { setCandidates(data); setError(''); })
+        .then((data) => {
+          setCandidates(data);
+          setError('');
+          // Dung polling khi khong con ho so nao dang cho worker xu ly (PENDING)
+          if (timer && data.length > 0 && data.every((c) => c.status !== 'PENDING')) {
+            clearInterval(timer);
+          }
+        })
         .catch((err) => setError(err.response?.data?.message ?? 'Không tải được danh sách'));
     load();
-    const timer = setInterval(load, 5000); // tu dong cap nhat khi worker xu ly xong
+    timer = setInterval(load, 5000); // tu dong cap nhat khi worker xu ly xong
     return () => clearInterval(timer);
   }, [selectedJobId]);
 
   const handleDownload = async (cvId: number) => {
-    const url = await getDownloadUrl(cvId);
-    window.open(url, '_blank', 'noopener,noreferrer');
+    try {
+      const url = await getDownloadUrl(cvId);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? 'Không tải được file CV');
+    }
   };
 
   return (

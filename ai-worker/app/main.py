@@ -15,6 +15,7 @@ import os
 import tempfile
 import traceback
 
+from app import config
 from app.models.schemas import CvProcessingMessage
 from app.nlp import extractor, llm_summarizer, matcher, scorer
 from app.parsers import docx_parser, pdf_parser
@@ -75,13 +76,27 @@ def process_message(msg: CvProcessingMessage) -> None:
 
 
 def main() -> None:
+    # In ro endpoint dang dung: neu quen bo trong S3_ENDPOINT/SQS_ENDPOINT khi
+    # deploy AWS that, worker se am tham noi ve localhost va loi connection-refused
+    # kho doan nguyen nhan neu khong thay dong log nay.
+    print(f"[Worker] S3_ENDPOINT={config.S3_ENDPOINT or '(AWS that)'} "
+          f"SQS_ENDPOINT={config.SQS_ENDPOINT or '(AWS that)'}")
+
     queue_url = sqs_client.get_queue_url()
     print(f"[Worker] Dang lang nghe queue: {queue_url}")
 
     while True:
         for message in sqs_client.receive_messages(queue_url):
-            body = json.loads(message["Body"])
-            msg = CvProcessingMessage.from_dict(body)
+            try:
+                body = json.loads(message["Body"])
+                msg = CvProcessingMessage.from_dict(body)
+            except Exception:
+                # Message khong parse duoc se loi vinh vien neu giu lai trong queue
+                # (worker se crash lap lai moi lan doc lai no) -> xoa luon.
+                traceback.print_exc()
+                sqs_client.delete_message(queue_url, message["ReceiptHandle"])
+                continue
+
             try:
                 process_message(msg)
             except Exception:

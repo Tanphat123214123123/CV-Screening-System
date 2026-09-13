@@ -42,6 +42,10 @@ docker compose up -d
 
 ```bash
 cd backend
+# Postgres trong docker-compose chay o cong 5433 (khong phai 5432 mac dinh) de
+# tranh xung dot voi mot PostgreSQL cai san tren may (rat pho bien tren Windows).
+# Spring Boot khong tu doc file .env nen phai export truc tiep:
+export DB_PORT=5433              # Windows PowerShell: $env:DB_PORT="5433"
 mvn spring-boot:run
 ```
 
@@ -54,6 +58,7 @@ mvn spring-boot:run
 
 ```bash
 cd ai-worker
+cp .env.example .env    # Windows: copy .env.example .env  — worker tu doc file nay (python-dotenv)
 python -m venv venv && source venv/bin/activate    # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python -m app.main
