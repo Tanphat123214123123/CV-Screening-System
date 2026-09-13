@@ -1,0 +1,88 @@
+# Ha tang chay local — mo phong day du AWS (S3 -> MinIO, SQS -> ElasticMQ)
+# Chay:  docker compose up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cvs-postgres
+    environment:
+      POSTGRES_DB: cvscreening
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      # Map ra 5433 (khong phai 5432 mac dinh) vi nhieu may Windows/macOS da
+      # co san mot PostgreSQL native chay nhu service, chiem san cong 5432.
+      # Ket noi tu backend chay local: dat DB_PORT=5433.
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # S3-compatible storage cho moi truong dev
+  # Luu y: dung quay.io thay vi Docker Hub — tu 2024 MinIO gioi han pull anonymous
+  # tren Docker Hub (minio/minio, minio/mc), quay.io la kenh phan phoi chinh thuc con lai.
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: cvs-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - miniodata:/data
+
+  # Tao san bucket cv-bucket khi khoi dong
+  minio-init:
+    image: quay.io/minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb --ignore-existing local/cv-bucket;
+      exit 0;
+      "
+
+  # SQS-compatible queue cho moi truong dev
+  elasticmq:
+    image: softwaremill/elasticmq-native:latest
+    container_name: cvs-elasticmq
+    ports:
+      - "9324:9324"
+    volumes:
+      - ./elasticmq.conf:/opt/elasticmq.conf
+
+  # ==== 2 service duoi day: bo comment neu muon chay backend + worker bang Docker ====
+  # backend:
+  #   build: ../backend
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     DB_HOST: postgres
+  #     S3_ENDPOINT: http://minio:9000
+  #     SQS_ENDPOINT: http://elasticmq:9324
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
+  # ai-worker:
+  #   build: ../ai-worker
+  #   environment:
+  #     DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/cvscreening
+  #     S3_ENDPOINT: http://minio:9000
+  #     SQS_ENDPOINT: http://elasticmq:9324
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
+volumes:
+  pgdata:
+  miniodata:
