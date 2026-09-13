@@ -53,7 +53,8 @@ public class CvService {
             throw new ApiException(HttpStatus.CONFLICT, "Ban da nop CV cho vi tri nay roi");
         });
 
-        String originalName = file.getOriginalFilename() == null ? "cv" : file.getOriginalFilename();
+        String rawFileName = file.getOriginalFilename();
+        String originalName = rawFileName == null ? "cv" : rawFileName;
         String extension = getExtension(originalName);
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Chi chap nhan file PDF hoac Word (.pdf, .docx, .doc)");
@@ -76,7 +77,14 @@ public class CvService {
             throw new ApiException(HttpStatus.CONFLICT, "Ban da nop CV cho vi tri nay roi");
         }
 
-        sqsService.sendCvProcessingMessage(cv.getId(), jobId, s3Key, originalName);
+        try {
+            sqsService.sendCvProcessingMessage(cv.getId(), jobId, s3Key, originalName);
+        } catch (RuntimeException e) {
+            // Transaction se rollback ban ghi Cv, nhung file da upload len S3 thi khong
+            // tu dong bien mat -> xoa thu cong de tranh orphan file ton kho lau dai.
+            s3Service.delete(s3Key);
+            throw e;
+        }
 
         return new CvUploadResponse(cv.getId(), originalName, cv.getStatus().name(),
                 "CV da duoc tiep nhan va dang duoc AI phan tich");
@@ -101,13 +109,16 @@ public class CvService {
                 .toList();
     }
 
-    /** HR hoac chinh chu CV moi duoc tai file. */
+    /** Chinh chu CV, hoac HR la nguoi tao ra tin tuyen dung ma CV nay nop vao, moi duoc tai file. */
     public String getDownloadUrl(Long cvId, User requester) {
         Cv cv = cvRepository.findById(cvId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Khong tim thay CV"));
         boolean isOwner = cv.getCandidateId().equals(requester.getId());
-        boolean isHr = requester.getRole() == Role.HR;
-        if (!isOwner && !isHr) {
+        boolean isOwningHr = requester.getRole() == Role.HR
+                && jobRepository.findById(cv.getJobId())
+                        .map(job -> job.getCreatedBy().equals(requester.getId()))
+                        .orElse(false);
+        if (!isOwner && !isOwningHr) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Ban khong co quyen tai CV nay");
         }
         return s3Service.presignDownloadUrl(cv.getS3Key());

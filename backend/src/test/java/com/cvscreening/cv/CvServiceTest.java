@@ -73,4 +73,29 @@ class CvServiceTest {
         assertThrows(ApiException.class, () -> cvService.upload(file, 10L, candidate));
         verifyNoInteractions(s3Service, sqsService);
     }
+
+    @Test
+    void getDownloadUrl_hrTaoTinNay_choPhepTai() {
+        Cv cv = Cv.builder().id(5L).fileName("cv.pdf").s3Key("cvs/x.pdf")
+                .candidateId(candidate.getId()).jobId(job.getId()).build();
+        User hrChuTin = User.builder().id(job.getCreatedBy()).role(Role.HR).build();
+        when(cvRepository.findById(5L)).thenReturn(Optional.of(cv));
+        when(jobRepository.findById(job.getId())).thenReturn(Optional.of(job));
+        when(s3Service.presignDownloadUrl("cvs/x.pdf")).thenReturn("https://signed-url");
+
+        assertEquals("https://signed-url", cvService.getDownloadUrl(5L, hrChuTin));
+    }
+
+    @Test
+    void getDownloadUrl_hrKhacKhongTaoTinNay_bao403() {
+        Cv cv = Cv.builder().id(5L).fileName("cv.pdf").s3Key("cvs/x.pdf")
+                .candidateId(candidate.getId()).jobId(job.getId()).build();
+        // HR nay khong phai nguoi tao ra tin (job.createdBy = 2L)
+        User hrKhac = User.builder().id(999L).role(Role.HR).build();
+        when(cvRepository.findById(5L)).thenReturn(Optional.of(cv));
+        when(jobRepository.findById(job.getId())).thenReturn(Optional.of(job));
+
+        assertThrows(ApiException.class, () -> cvService.getDownloadUrl(5L, hrKhac));
+        verifyNoInteractions(s3Service);
+    }
 }
