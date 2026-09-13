@@ -6,12 +6,21 @@ import type { MyApplication } from '../../types';
 export default function MyApplications() {
   const [applications, setApplications] = useState<MyApplication[]>([]);
 
-  const load = () => getMyApplications().then(setApplications).catch(() => {});
-
   useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const load = () =>
+      getMyApplications()
+        .then((data) => {
+          setApplications(data);
+          // Dung polling khi khong con don nao dang cho worker xu ly (PENDING)
+          if (timer && data.length > 0 && data.every((app) => app.status !== 'PENDING')) {
+            clearInterval(timer);
+          }
+        })
+        .catch(() => {});
     load();
     // Tu dong lam moi de thay trang thai chuyen PENDING -> PROCESSED
-    const timer = setInterval(load, 5000);
+    timer = setInterval(load, 5000);
     return () => clearInterval(timer);
   }, []);
 

@@ -8,8 +8,12 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const raw = localStorage.getItem('auth');
   if (raw) {
-    const { token } = JSON.parse(raw);
-    config.headers.Authorization = `Bearer ${token}`;
+    try {
+      const { token } = JSON.parse(raw);
+      if (token) config.headers.Authorization = `Bearer ${token}`;
+    } catch {
+      localStorage.removeItem('auth');
+    }
   }
   return config;
 });

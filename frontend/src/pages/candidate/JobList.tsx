@@ -56,9 +56,9 @@ export default function JobList() {
             {job.location && <p className="text-sm text-ink/50">{job.location}</p>}
             <p className="mt-2 line-clamp-3 flex-1 text-sm text-ink/70">{job.description}</p>
             <div className="mt-3 flex flex-wrap gap-1">
-              {job.requiredSkills.split(',').slice(0, 5).map((skill) => (
+              {job.requiredSkills.split(',').map((skill) => skill.trim()).filter(Boolean).slice(0, 5).map((skill) => (
                 <span key={skill} className="rounded bg-mint px-2 py-0.5 text-xs text-moss">
-                  {skill.trim()}
+                  {skill}
                 </span>
               ))}
             </div>
