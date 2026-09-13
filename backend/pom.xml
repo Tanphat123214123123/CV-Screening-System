@@ -21,6 +21,10 @@
         <java.version>17</java.version>
         <awssdk.version>2.25.31</awssdk.version>
         <jjwt.version>0.11.5</jjwt.version>
+        <!-- Override version tu spring-boot-starter-parent: ban cu khong ho tro JDK 22/23 -->
+        <lombok.version>1.18.36</lombok.version>
+        <mockito.version>5.14.2</mockito.version>
+        <byte-buddy.version>1.15.10</byte-buddy.version>
     </properties>
 
     <dependencyManagement>
@@ -118,6 +122,21 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!-- Khai bao tuong minh de Lombok chac chan chay nhu annotation processor
+                         (tu dong phat hien qua classpath co the that bai voi JDK moi) -->
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

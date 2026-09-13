@@ -1,6 +1,7 @@
 package com.cvscreening.auth;
 
 import com.cvscreening.user.UserService;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,6 +48,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     // Token con han nhung user da bi xoa khoi DB: bo qua,
                     // request se roi vao 401 o buoc authorization phia sau.
                     log.debug("JWT hop le nhung user khong con ton tai: {}", e.getMessage());
+                } catch (JwtException e) {
+                    // Hiem: token het han dung vao khoang giua isValid() va extractEmail().
+                    // Bo qua thay vi de loi thoat khoi filter (se bypass GlobalExceptionHandler).
+                    log.debug("JWT het han/khong hop le giua luc xu ly: {}", e.getMessage());
                 }
             }
         }
