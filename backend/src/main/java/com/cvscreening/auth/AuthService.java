@@ -44,7 +44,8 @@ public class AuthService {
         } catch (BadCredentialsException e) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Email hoac mat khau khong dung");
         }
-        User user = userRepository.findByEmail(request.email()).orElseThrow();
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Email hoac mat khau khong dung"));
         return buildResponse(user);
     }
 
