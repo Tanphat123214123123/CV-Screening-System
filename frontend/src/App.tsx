@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import Layout from './components/common/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import JobList from './pages/candidate/JobList';
@@ -21,7 +22,7 @@ function Protected({ role, children }: { role: Role; children: ReactNode }) {
 
 function Home() {
   const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Landing />;
   return <Navigate to={user.role === 'HR' ? '/hr/jobs' : '/jobs'} replace />;
 }
 
@@ -29,18 +30,28 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/jobs" element={<Protected role="CANDIDATE"><JobList /></Protected>} />
-            <Route path="/my-applications" element={<Protected role="CANDIDATE"><MyApplications /></Protected>} />
-            <Route path="/hr/jobs" element={<Protected role="HR"><JobManagement /></Protected>} />
-            <Route path="/hr/review" element={<Protected role="HR"><CandidateReview /></Protected>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Layout>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Layout><Login /></Layout>} />
+          <Route path="/register" element={<Layout><Register /></Layout>} />
+          <Route
+            path="/jobs"
+            element={<Layout><Protected role="CANDIDATE"><JobList /></Protected></Layout>}
+          />
+          <Route
+            path="/my-applications"
+            element={<Layout><Protected role="CANDIDATE"><MyApplications /></Protected></Layout>}
+          />
+          <Route
+            path="/hr/jobs"
+            element={<Layout><Protected role="HR"><JobManagement /></Protected></Layout>}
+          />
+          <Route
+            path="/hr/review"
+            element={<Layout><Protected role="HR"><CandidateReview /></Protected></Layout>}
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </BrowserRouter>
     </AuthProvider>
   );

@@ -2,6 +2,58 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-paper text-ink antialiased;
+@layer base {
+  body {
+    @apply bg-paper text-ink antialiased font-sans;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  }
+
+  ::selection {
+    @apply bg-amber text-ink;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+}
+
+@layer components {
+  /* Nhãn nhỏ viết hoa, dãn chữ — dùng cho eyebrow, header cột bảng, nav. */
+  .eyebrow {
+    @apply font-mono text-label uppercase text-ink/45;
+  }
+
+  /* Khối bo góc nhẹ, viền hairline, không đổ bóng mờ — thay cho card shadow-sm mặc định. */
+  .panel {
+    @apply rounded bg-paper-card border border-ink/10;
+  }
+
+  .field {
+    @apply w-full rounded border border-ink/20 bg-paper-card px-3 py-2.5 text-sm text-ink
+      placeholder:text-ink/40 transition-colors duration-200
+      focus:border-moss focus:outline-none focus:ring-2 focus:ring-moss/15;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded px-4 py-2.5 text-sm font-semibold
+      transition-all duration-200 ease-out disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .btn-primary {
+    @apply btn bg-ink text-paper hover:bg-moss active:scale-[0.98];
+  }
+
+  .btn-accent {
+    @apply btn bg-amber text-ink hover:bg-amber-dark hover:text-paper active:scale-[0.98];
+  }
+
+  .btn-secondary {
+    @apply btn border border-ink/25 text-ink hover:border-moss hover:text-moss hover:bg-mint/50 active:scale-[0.98];
+  }
+
+  .btn-danger {
+    @apply btn border border-rust/40 text-rust hover:bg-rust hover:text-paper active:scale-[0.98];
+  }
 }

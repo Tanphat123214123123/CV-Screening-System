@@ -33,12 +33,13 @@ export default function JobList() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-extrabold">Việc làm đang tuyển</h1>
-      <p className="mb-6 text-sm text-ink/60">
+      <span className="eyebrow text-moss">Ứng viên</span>
+      <h1 className="mt-2 font-display text-display-lg font-semibold">Việc làm đang tuyển</h1>
+      <p className="mt-2 max-w-xl text-ink/60">
         Nộp CV (PDF/DOCX) — AI sẽ phân tích và chấm điểm mức độ phù hợp của bạn.
       </p>
       {message && (
-        <div className="mb-4 rounded-lg bg-mint px-4 py-3 text-sm font-medium text-moss">
+        <div className="mt-5 animate-fade-up border-l-4 border-moss bg-mint/60 px-4 py-3 text-sm font-medium text-moss">
           {message}
         </div>
       )}
@@ -49,15 +50,21 @@ export default function JobList() {
         className="hidden"
         onChange={handleFileChange}
       />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="mt-8 grid gap-5 sm:grid-cols-2">
         {jobs.map((job) => (
-          <article key={job.id} className="flex flex-col rounded-xl bg-white p-5 shadow-sm">
-            <h2 className="font-bold">{job.title}</h2>
-            {job.location && <p className="text-sm text-ink/50">{job.location}</p>}
-            <p className="mt-2 line-clamp-3 flex-1 text-sm text-ink/70">{job.description}</p>
-            <div className="mt-3 flex flex-wrap gap-1">
+          <article
+            key={job.id}
+            className="group panel flex flex-col border-t-2 border-t-ink/15 p-5 transition-colors duration-200 hover:border-t-moss"
+          >
+            <h2 className="font-display text-lg font-semibold">{job.title}</h2>
+            {job.location && <p className="eyebrow mt-1 text-ink/40">{job.location}</p>}
+            <p className="mt-3 line-clamp-3 flex-1 text-sm text-ink/70">{job.description}</p>
+            <div className="mt-4 flex flex-wrap gap-1.5">
               {job.requiredSkills.split(',').map((skill) => skill.trim()).filter(Boolean).slice(0, 5).map((skill) => (
-                <span key={skill} className="rounded bg-mint px-2 py-0.5 text-xs text-moss">
+                <span
+                  key={skill}
+                  className="rounded-sm border border-ink/15 px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide text-ink/60"
+                >
                   {skill}
                 </span>
               ))}
@@ -68,7 +75,7 @@ export default function JobList() {
                 setSelectedJob(job);
                 fileInputRef.current?.click();
               }}
-              className="mt-4 rounded-lg bg-moss py-2 text-sm font-semibold text-white hover:bg-ink disabled:opacity-50"
+              className="btn-accent mt-5 w-full"
             >
               {uploading && selectedJob?.id === job.id ? 'Đang nộp…' : 'Nộp CV'}
             </button>

@@ -26,33 +26,35 @@ export default function MyApplications() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-extrabold">Đơn ứng tuyển của tôi</h1>
-      <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+      <span className="eyebrow text-moss">Ứng viên</span>
+      <h1 className="mt-2 font-display text-display-lg font-semibold">Đơn ứng tuyển của tôi</h1>
+
+      <div className="mt-8 panel overflow-hidden border-t-2 border-t-ink">
         <table className="w-full text-sm">
-          <thead className="bg-mint text-left text-moss">
-            <tr>
-              <th className="px-4 py-3">Vị trí</th>
-              <th className="px-4 py-3">File CV</th>
-              <th className="px-4 py-3">Ngày nộp</th>
-              <th className="px-4 py-3">Kết quả AI</th>
+          <thead>
+            <tr className="border-b-2 border-ink/10">
+              <th className="eyebrow px-4 py-3 text-left">Vị trí</th>
+              <th className="eyebrow px-4 py-3 text-left">File CV</th>
+              <th className="eyebrow px-4 py-3 text-left">Ngày nộp</th>
+              <th className="eyebrow px-4 py-3 text-left">Kết quả AI</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-ink/10">
             {applications.map((app) => (
-              <tr key={app.cvId} className="border-t border-ink/5">
-                <td className="px-4 py-3 font-medium">{app.jobTitle}</td>
-                <td className="px-4 py-3 text-ink/60">{app.fileName}</td>
-                <td className="px-4 py-3 text-ink/60">
+              <tr key={app.cvId} className="transition-colors duration-200 hover:bg-mint/40">
+                <td className="px-4 py-3.5 font-medium">{app.jobTitle}</td>
+                <td className="px-4 py-3.5 text-ink/60">{app.fileName}</td>
+                <td className="px-4 py-3.5 font-mono text-xs text-ink/60">
                   {new Date(app.uploadedAt).toLocaleDateString('vi-VN')}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3.5">
                   <ScoreBadge score={app.score} status={app.status} />
                 </td>
               </tr>
             ))}
             {applications.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-ink/50">
+                <td colSpan={4} className="px-4 py-10 text-center text-ink/50">
                   Bạn chưa nộp CV nào. Vào mục Việc làm để bắt đầu.
                 </td>
               </tr>
