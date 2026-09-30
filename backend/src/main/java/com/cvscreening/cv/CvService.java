@@ -56,9 +56,14 @@ public class CvService {
         jobRepository.findById(jobId)
                 .filter(job -> Boolean.TRUE.equals(job.getActive()))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tin tuyển dụng không tồn tại hoặc đã đóng."));
-        if (cvRepository.existsByCandidateIdAndJobId(candidate.getId(), jobId)) {
+        // Da nop roi: chi cho nop lai khi AI khong doc duoc file cu (FAILED) - neu khong ung vien
+        // bi ket vinh vien voi mot ho so hong ma khong co cach nao sua.
+        Cv previous = cvRepository.findByCandidateIdAndJobId(candidate.getId(), jobId).orElse(null);
+        if (previous != null && previous.getStatus() != CvStatus.FAILED) {
             throw new ApiException(HttpStatus.CONFLICT, ALREADY_APPLIED);
         }
+        // Lay key file cu NGAY BAY GIO: resubmit() se ghi de s3Key cua ho so
+        String previousS3Key = previous == null ? null : previous.getS3Key();
 
         CvFileType type = CvFileInspector.inspect(file);
         String fileName = CvFileNames.displayName(file.getOriginalFilename(), type.extension());
@@ -68,12 +73,14 @@ public class CvService {
         Cv cv;
         try {
             cv = transactionTemplate.execute(status -> {
-                Cv saved = cvRepository.save(Cv.builder()
-                        .fileName(fileName)
-                        .s3Key(s3Key)
-                        .candidateId(candidate.getId())
-                        .jobId(jobId)
-                        .build());
+                Cv saved = previous == null
+                        ? cvRepository.save(Cv.builder()
+                                .fileName(fileName)
+                                .s3Key(s3Key)
+                                .candidateId(candidate.getId())
+                                .jobId(jobId)
+                                .build())
+                        : resubmit(previous.getId(), fileName, s3Key);
                 outboxService.enqueueCvProcessing(saved);
                 return saved;
             });
@@ -88,8 +95,23 @@ public class CvService {
             throw e;
         }
 
-        return new CvUploadResponse(cv.getId(), fileName, cv.getStatus().name(),
-                "CV đã được tiếp nhận và đang được AI phân tích.");
+        if (previousS3Key != null) {
+            // File hong cu khong con ho so nao tro toi
+            s3Service.deleteQuietly(previousS3Key);
+        }
+        return new CvUploadResponse(cv.getId(), fileName, cv.getStatus().name(), previous == null
+                ? "CV đã được tiếp nhận và đang được AI phân tích."
+                : "Đã nhận CV mới, AI đang phân tích lại.");
+    }
+
+    /** Chay trong transaction cua upload. Khoa dong roi kiem tra lai: request nop lai khac co the vua chay xong. */
+    private Cv resubmit(Long cvId, String fileName, String s3Key) {
+        Cv cv = cvRepository.findByIdForUpdate(cvId)
+                .filter(c -> c.getStatus() == CvStatus.FAILED)
+                .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, ALREADY_APPLIED));
+        matchResultRepository.deleteByCvId(cvId);
+        cv.resubmit(fileName, s3Key, clock.instant());
+        return cv;
     }
 
     @Transactional(readOnly = true)
@@ -110,7 +132,7 @@ public class CvService {
                     return new MyApplicationResponse(cv.getId(), cv.getJobId(),
                             jobTitleById.getOrDefault(cv.getJobId(), "(tin đã xoá)"),
                             cv.getFileName(), cv.getStatus().name(), cv.getReviewStatus().name(),
-                            result != null ? result.getScore() : null,
+                            result != null ? FitLevel.of(result.getScore()).name() : null,
                             result != null ? result.getMatchedSkills() : null,
                             result != null ? result.getMissingSkills() : null,
                             cv.getUploadedAt());
