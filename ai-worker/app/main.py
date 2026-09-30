@@ -75,6 +75,17 @@ def process_message(msg: CvProcessingMessage) -> None:
     print(f"[Worker] Hoan tat CV #{msg.cv_id}: score={score}")
 
 
+def sync_skill_dictionary() -> bool:
+    """Dong bo tu dien ky nang len DB. Tra ve False (thu lai sau) neu backend chua tao bang."""
+    try:
+        db_client.sync_skill_keywords(extractor.SKILL_KEYWORDS)
+        print(f"[Worker] Da dong bo {len(extractor.SKILL_KEYWORDS)} ky nang vao skill_keywords")
+        return True
+    except Exception as exc:  # bang chua ton tai / DB chua san sang - khong duoc lam chet worker
+        print(f"[Worker] Chua dong bo duoc tu dien ky nang, se thu lai: {exc.__class__.__name__}")
+        return False
+
+
 def main() -> None:
     # In ro endpoint dang dung: neu quen bo trong S3_ENDPOINT/SQS_ENDPOINT khi
     # deploy AWS that, worker se am tham noi ve localhost va loi connection-refused
@@ -84,8 +95,11 @@ def main() -> None:
 
     queue_url = sqs_client.get_queue_url()
     print(f"[Worker] Dang lang nghe queue: {queue_url}")
+    skills_synced = sync_skill_dictionary()
 
     while True:
+        if not skills_synced:
+            skills_synced = sync_skill_dictionary()
         for message in sqs_client.receive_messages(queue_url):
             try:
                 body = json.loads(message["Body"])

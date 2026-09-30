@@ -50,6 +50,27 @@ def save_match_result(cv_id: int, job_id: int, score: float,
         )
 
 
+def sync_skill_keywords(skills: list[str]) -> None:
+    """Ghi tu dien ky nang cua worker vao bang skill_keywords (backend doc de canh bao HR).
+
+    Chay trong 1 transaction: xoa ky nang khong con trong tu dien, them ky nang moi.
+    Bang do Flyway cua backend tao - neu backend chua migrate xong thi nem loi, goi lai sau.
+    """
+    normalized = sorted({s.strip().lower() for s in skills if s.strip()})
+    with engine.begin() as conn:
+        conn.execute(
+            text("DELETE FROM skill_keywords WHERE NOT (skill = ANY(:skills))"),
+            {"skills": normalized},
+        )
+        conn.execute(
+            text("""
+                INSERT INTO skill_keywords (skill, synced_at) VALUES (:skill, now())
+                ON CONFLICT (skill) DO UPDATE SET synced_at = EXCLUDED.synced_at
+            """),
+            [{"skill": s} for s in normalized],
+        )
+
+
 def update_cv_status(cv_id: int, status: str) -> None:
     with engine.begin() as conn:
         conn.execute(
