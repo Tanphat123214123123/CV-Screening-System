@@ -159,6 +159,10 @@ export default function CandidateDetail({ candidate: c, jobId, requiredSkills, o
           <button
             onClick={() => setReview(c.reviewStatus === 'SHORTLISTED' ? 'NEW' : 'SHORTLISTED')}
             aria-pressed={c.reviewStatus === 'SHORTLISTED'}
+            // Backend chi cho shortlist ho so AI da cham xong (bo shortlist thi luon duoc)
+            disabled={c.reviewStatus !== 'SHORTLISTED' && c.status !== 'PROCESSED'}
+            title={c.reviewStatus !== 'SHORTLISTED' && c.status !== 'PROCESSED'
+              ? 'Chỉ shortlist được hồ sơ đã được AI chấm điểm xong' : undefined}
             className={c.reviewStatus === 'SHORTLISTED' ? 'btn-accent' : 'btn-outline'}
           >
             <Star className={`h-4 w-4 ${c.reviewStatus === 'SHORTLISTED' ? 'fill-current' : ''}`} aria-hidden="true" />

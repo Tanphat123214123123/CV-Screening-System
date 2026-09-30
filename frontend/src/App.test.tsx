@@ -48,7 +48,8 @@ describe('ung vien', () => {
   it('danh dau "Da nop" dung tin da ung tuyen', async () => {
     vi.mocked(jobService.getJobs).mockResolvedValue([job(1, 'Java Backend'), job(2, 'React Frontend')]);
     vi.mocked(cvService.getMyApplications).mockResolvedValue([
-      { cvId: 9, jobId: 1, jobTitle: 'Java Backend', fileName: 'cv.pdf', status: 'PROCESSED', score: 80,
+      { cvId: 9, jobId: 1, jobTitle: 'Java Backend', fileName: 'cv.pdf', status: 'PROCESSED',
+        reviewStatus: 'NEW', score: 80,
         matchedSkills: 'Java', missingSkills: null, uploadedAt: new Date().toISOString() } satisfies MyApplication,
     ]);
 
