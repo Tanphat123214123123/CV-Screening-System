@@ -54,6 +54,7 @@ public class MatchingService {
                             candidate != null ? candidate.getEmail() : "",
                             cv.getFileName(),
                             cv.getStatus().name(),
+                            cv.getReviewStatus().name(),
                             result != null ? result.getScore() : null,
                             result != null ? result.getMatchedSkills() : null,
                             result != null ? result.getMissingSkills() : null,

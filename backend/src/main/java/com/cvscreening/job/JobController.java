@@ -2,6 +2,7 @@ package com.cvscreening.job;
 
 import com.cvscreening.job.JobDtos.JobRequest;
 import com.cvscreening.job.JobDtos.JobResponse;
+import com.cvscreening.job.JobDtos.MyJobResponse;
 import com.cvscreening.user.User;
 import com.cvscreening.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +30,13 @@ public class JobController {
     @Operation(summary = "Danh sach tin tuyen dung dang mo (HR + ung vien deu xem duoc)")
     public List<JobResponse> getActiveJobs() {
         return jobService.getActiveJobs();
+    }
+
+    @GetMapping("/mine")
+    @PreAuthorize("hasRole('HR')")
+    @Operation(summary = "Tin tuyen dung do HR hien tai tao (ca tin da dong), kem so lieu ung vien")
+    public List<MyJobResponse> getMyJobs(Authentication auth) {
+        return jobService.getJobsOf(userService.getByEmail(auth.getName()));
     }
 
     @GetMapping("/{id}")
@@ -62,6 +70,15 @@ public class JobController {
     public ResponseEntity<Void> deactivate(@PathVariable Long id, Authentication auth) {
         User hr = userService.getByEmail(auth.getName());
         jobService.deactivate(id, hr);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/reopen")
+    @PreAuthorize("hasRole('HR')")
+    @Operation(summary = "Mo lai tin tuyen dung da dong")
+    public ResponseEntity<Void> reopen(@PathVariable Long id, Authentication auth) {
+        User hr = userService.getByEmail(auth.getName());
+        jobService.reopen(id, hr);
         return ResponseEntity.noContent().build();
     }
 }

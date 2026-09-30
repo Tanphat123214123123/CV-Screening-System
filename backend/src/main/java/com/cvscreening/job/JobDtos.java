@@ -22,4 +22,15 @@ public class JobDtos {
                     job.getRequiredSkills(), job.getLocation(), job.getActive(), job.getCreatedAt());
         }
     }
+
+    /** Tin tuyen dung cua HR kem so lieu ung vien de hien dashboard. */
+    public record MyJobResponse(
+            Long id, String title, String description, String requiredSkills,
+            String location, Boolean active, Instant createdAt,
+            int applicantCount,     // tong so CV da nop
+            int pendingCount,       // CV AI chua xu ly xong
+            int strongCount,        // CV dat >= 70 diem
+            int shortlistedCount,   // CV HR da dua vao shortlist
+            Double averageScore     // null neu chua co CV nao duoc cham
+    ) {}
 }
