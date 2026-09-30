@@ -1,0 +1,19 @@
+# Cau hinh cong cu cho AI Worker (khong dong goi thanh package - chay bang `python -m app.main`).
+
+[tool.ruff]
+target-version = "py311"
+line-length = 110
+src = ["."]
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes (bien/import thua, loi ten), I: sap xep import,
+# B: bugbear (loi logic hay gap), UP: cu phap Python moi
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["app"]
+# Vong lap SQS va client ha tang duoc kiem bang integration test (docker compose), khong unit test
+omit = ["app/main.py", "app/services/*"]

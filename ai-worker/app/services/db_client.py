@@ -3,7 +3,7 @@
 Worker dung chung database voi backend Spring Boot.
 Ten bang/cot theo naming strategy mac dinh cua Hibernate (snake_case).
 """
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import create_engine, text
 
@@ -45,7 +45,7 @@ def save_match_result(cv_id: int, job_id: int, score: float,
                 "cv_id": cv_id, "job_id": job_id, "score": score,
                 "matched": matched_skills, "missing": missing_skills,
                 "summary": summary, "years": years_experience,
-                "created_at": datetime.now(timezone.utc),
+                "created_at": datetime.now(UTC),
             },
         )
 
