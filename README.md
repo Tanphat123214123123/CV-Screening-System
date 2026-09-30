@@ -107,6 +107,30 @@ npm test       # Vitest + Testing Library
 5. Bấm **Ứng viên** ở một tin → danh sách xếp hạng theo điểm, lọc theo ngưỡng điểm / trạng thái, tìm theo tên hoặc kỹ năng. Chọn một ứng viên để xem điểm, kỹ năng khớp / thiếu, nhận xét AI, **Xem CV** ngay trong trang (PDF) và đánh dấu **Shortlist** / **Loại**.
 6. Nút mặt trăng / mặt trời trên thanh điều hướng chuyển giao diện sáng / tối.
 
+## Kiểm thử & CI
+
+| Tầng | Công cụ | Lệnh |
+|---|---|---|
+| Backend | JUnit 5 + Mockito, JaCoCo (coverage) | `cd backend && ./mvnw verify` → báo cáo ở `target/site/jacoco/` |
+| AI worker | pytest + pytest-cov, ruff (lint) | `cd ai-worker && ruff check . && pytest --cov` |
+| Frontend | Vitest + Testing Library, ESLint | `cd frontend && npm run lint && npm run test:coverage` |
+| **Tích hợp (end-to-end)** | pytest gọi API thật trên toàn bộ hệ thống Docker | xem bên dưới |
+
+Test tích hợp dựng **cả hệ thống** (backend + worker + Postgres + MinIO + ElasticMQ) bằng Docker rồi kiểm tra luồng thật: nộp CV → S3 → SQS → worker chấm điểm → HR xem / shortlist, phân quyền giữa các HR, đóng / mở lại tin, CORS:
+
+```bash
+cd infra
+docker compose --profile app up -d --build   # profile "app" = thêm backend + ai-worker
+cd ../integration-tests
+pip install -r requirements.txt
+pytest -v
+cd ../infra && docker compose --profile app down   # thêm -v để xoá dữ liệu
+```
+
+> Test tự tạo user/tin với email ngẫu nhiên nên chạy lặp lại được; nếu chạy trên DB local có dữ liệu demo, các tin "Integration Java Backend" sẽ xuất hiện cùng.
+
+GitHub Actions ([`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml)) chạy 4 job song song trên mỗi PR và push vào `main`: `backend`, `ai-worker`, `frontend`, `integration` — kèm tóm tắt coverage và artifact báo cáo. Nhánh `main` được bảo vệ: phải qua PR và cả 4 job phải xanh mới merge được. Dependabot ([`.github/dependabot.yml`](.github/dependabot.yml)) mở PR cập nhật thư viện hằng tuần.
+
 ## Cách AI chấm điểm
 
 1. **Parse**: trích text từ PDF (pdfplumber) hoặc DOCX (python-docx, gồm cả bảng).
@@ -129,8 +153,9 @@ npm test       # Vitest + Testing Library
 backend/     Spring Boot — auth, jobs, cv upload (S3+SQS), matching API, unit test
 ai-worker/   Python — consume SQS, parse CV, NLP, chấm điểm, ghi PostgreSQL
 frontend/    React + TS — trang ứng viên & trang HR
-infra/       docker-compose (postgres/minio/elasticmq)
-.github/     CI GitHub Actions (.github/workflows/ci-cd.yml)
+infra/       docker-compose (postgres/minio/elasticmq; profile "app" thêm backend + worker)
+integration-tests/  Test end-to-end qua API trên toàn bộ hệ thống Docker
+.github/     CI GitHub Actions + Dependabot
 docs/        api-spec.md
 ```
 
