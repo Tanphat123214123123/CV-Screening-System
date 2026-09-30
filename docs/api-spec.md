@@ -22,7 +22,7 @@ Mọi lỗi đều trả cùng một body:
 | 403 | Đã đăng nhập nhưng không đủ quyền (sai vai trò, không phải chủ tin, sai mã mời HR) |
 | 404 | Không tìm thấy tài nguyên hoặc đường dẫn API |
 | 405 / 415 | Sai HTTP method / sai `Content-Type` |
-| 409 | Trùng dữ liệu (email đã dùng, đã nộp CV cho tin này), shortlist hồ sơ chưa chấm xong |
+| 409 | Trùng dữ liệu (email đã dùng, đã nộp CV cho tin này mà CV không ở trạng thái FAILED), shortlist hồ sơ chưa chấm xong |
 | 413 | File > 5MB |
 | 429 | Đăng nhập sai quá nhiều lần; header `Retry-After` (giây) cho biết thời gian chờ |
 
@@ -49,8 +49,8 @@ Mọi lỗi đều trả cùng một body:
 
 | Method | Endpoint | Quyền | Mô tả |
 |---|---|---|---|
-| POST | `/cv/upload` | CANDIDATE | multipart/form-data: `file` (PDF/DOCX ≤5MB, kiểm tra cả nội dung), `jobId`. Trả 202, CV vào trạng thái PENDING |
-| GET | `/cv/mine` | CANDIDATE | Đơn ứng tuyển của tôi kèm điểm AI và `reviewStatus` |
+| POST | `/cv/upload` | CANDIDATE | multipart/form-data: `file` (PDF/DOCX ≤5MB, kiểm tra cả nội dung), `jobId`. Trả 202, CV vào trạng thái PENDING. **Nộp lại:** nếu CV cũ của tin này bị `FAILED` (AI không đọc được), hồ sơ cũ được cập nhật với file mới (cùng `cvId`), `reviewStatus` về `NEW` và AI chấm lại; trạng thái khác → 409 |
+| GET | `/cv/mine` | CANDIDATE | Đơn ứng tuyển của tôi: `{cvId, jobId, jobTitle, fileName, status, reviewStatus, fitLevel, matchedSkills, missingSkills, uploadedAt}`. Ứng viên **không** nhận điểm số: `fitLevel` = `HIGH` (≥70) / `MEDIUM` (≥40) / `LOW`, `null` khi chưa chấm xong |
 | PATCH | `/cv/{id}/review-status` | HR (chủ tin) | Body: `{status: "NEW"\|"SHORTLISTED"\|"REJECTED"}`. SHORTLISTED chỉ khi CV đã PROCESSED. Lưu người duyệt + thời điểm |
 | GET | `/cv/{id}/download` | HR chủ tin hoặc chủ CV | Presigned URL S3 (hạn 15 phút) |
 
@@ -59,6 +59,12 @@ Mọi lỗi đều trả cùng một body:
 | Method | Endpoint | Quyền | Mô tả |
 |---|---|---|---|
 | GET | `/matching/job/{jobId}` | HR (chủ tin) | Ứng viên xếp hạng theo điểm giảm dần (CV chưa có điểm xếp cuối). Mỗi phần tử: `{cvId, candidateName, candidateEmail, fileName, status, reviewStatus, score, matchedSkills, missingSkills, summary, yearsExperience, uploadedAt, reviewedAt}` |
+
+## Skills
+
+| Method | Endpoint | Quyền | Mô tả |
+|---|---|---|---|
+| GET | `/skills` | HR | `{skills: [...]}`: từ điển kỹ năng AI worker nhận diện được (worker đồng bộ `SKILL_KEYWORDS` vào bảng `skill_keywords` khi khởi động). Form đăng tin dùng để cảnh báo kỹ năng AI không nhận ra. Rỗng = worker chưa chạy lần nào |
 
 ## Message SQS (backend → worker)
 
@@ -75,5 +81,8 @@ Backend không gửi SQS trực tiếp. Message được ghi vào bảng `outbox
 - `cvs(id, file_name, s3key, status, review_status, reviewed_at, reviewed_by → users, candidate_id → users, job_id → jobs, uploaded_at)`, UNIQUE `(candidate_id, job_id)`
 - `match_results(id, cv_id UNIQUE, job_id, score 0–100, matched_skills, missing_skills, summary, years_experience, created_at)`, FK `(cv_id, job_id) → cvs(id, job_id)` ON DELETE CASCADE
 - `outbox_messages(id, aggregate_id, payload, created_at, sent_at, attempts, last_error)`
+- `skill_keywords(skill PK, synced_at)`: do AI worker ghi, backend chỉ đọc
 
 Schema do **Flyway** quản lý (`backend/src/main/resources/db/migration`), Hibernate chỉ `validate`. Worker Python ghi trực tiếp vào `match_results` và cập nhật `cvs.status`.
+
+Frontend chép lại 2 quy tắc của worker (nhận diện kỹ năng trong `matcher.py`, công thức điểm trong `scorer.py`) để cảnh báo HR và giải thích điểm. Cả hai phía cùng test với [`contracts/ai-rules.json`](../contracts/ai-rules.json): sửa quy tắc ở một phía mà quên phía kia thì CI đỏ.
