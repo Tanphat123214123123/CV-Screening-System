@@ -3,9 +3,11 @@
 Moi test o day kiem nhung thu unit test (mock) khong bat duoc: cac service
 that phoi hop voi nhau, phan quyen qua JWT, CORS cua trinh duyet.
 """
+import uuid
+
 import requests
 
-from conftest import API, FRONTEND_ORIGIN, docx_cv, upload, wait_until_processed
+from conftest import API, FRONTEND_ORIGIN, HR_INVITE_CODE, docx_cv, register_raw, upload, wait_until_processed
 
 JOB = {
     "title": "Integration Java Backend",
@@ -52,9 +54,13 @@ def test_luong_chinh_nop_cv_ai_cham_diem_hr_shortlist(hr, candidate):
     assert stats["shortlistedCount"] == 1
     assert stats["averageScore"] == 76.0
 
-    # 5) HR chu tin lay duoc presigned URL tai CV
+    # 5) HR chu tin lay presigned URL va TAI DUOC THAT tu may ngoai Docker (nhu trinh duyet).
+    #    Regression: URL tung ky voi host noi bo "minio:9000" -> trinh duyet khong mo duoc.
     url = hr.get(f"/cv/{cv_id}/download").json()["url"]
     assert "X-Amz-Signature" in url
+    file = requests.get(url, timeout=15)
+    assert file.status_code == 200, f"{url} -> {file.status_code}"
+    assert file.content[:2] == b"PK", "file tai ve khong phai DOCX da upload"
 
 
 def test_hr_khac_khong_xem_duoc_ung_vien_va_khong_thay_tin(hr, other_hr, candidate):
@@ -89,7 +95,10 @@ def test_tu_choi_file_sai_dinh_dang_va_nop_trung(hr, candidate):
 
 
 def test_phan_quyen_theo_vai_tro(hr, candidate):
-    assert requests.get(f"{API}/jobs/mine", timeout=10).status_code in (401, 403)
+    # Chua dang nhap / token het han PHAI la 401: frontend chi dua ve trang dang nhap khi nhan 401
+    assert requests.get(f"{API}/jobs/mine", timeout=10).status_code == 401
+    bad_token = {"Authorization": "Bearer abc.def.ghi"}
+    assert requests.get(f"{API}/jobs/mine", timeout=10, headers=bad_token).status_code == 401
     assert candidate.get("/jobs/mine").status_code == 403
     assert candidate.post("/jobs", json=JOB).status_code == 403
     assert hr.get("/cv/mine").status_code == 403
@@ -110,3 +119,54 @@ def test_cors_cho_phep_frontend_goi_patch():
     assert r.status_code == 200, r.text
     assert r.headers.get("Access-Control-Allow-Origin") == FRONTEND_ORIGIN
     assert "PATCH" in r.headers.get("Access-Control-Allow-Methods", "")
+
+
+def test_dang_ky_hr_bat_buoc_ma_moi():
+    """Regression: ai cung tu dang ky duoc tai khoan HR va doc CV (du lieu ca nhan) cua ung vien."""
+    assert register_raw("HR").status_code == 403
+    assert register_raw("HR", "doan-bua").status_code == 403
+    assert register_raw("HR", HR_INVITE_CODE).status_code == 201
+    assert register_raw("CANDIDATE").status_code == 201
+
+
+def test_email_khong_phan_biet_hoa_thuong():
+    email = f"Mixed-{uuid.uuid4().hex[:8]}@Example.COM"
+    assert register_raw("CANDIDATE", email=email).status_code == 201
+    assert register_raw("CANDIDATE", email=email.lower()).status_code == 409
+    r = requests.post(f"{API}/auth/login", timeout=15,
+                      json={"email": "  " + email.upper() + " ", "password": "secret123"})
+    assert r.status_code == 200, r.text
+
+
+def test_doi_ky_nang_jd_thi_cham_lai_toan_bo_cv(hr, candidate):
+    """Regression: sua JD khong cham lai -> bang xep hang tron diem cua nhieu phien ban JD."""
+    job_id = create_job(hr)
+    cv_text = "4 years experience\nSkills: Java, Spring Boot, Docker"
+    cv_id = upload(candidate, job_id, "cv.docx", docx_cv(cv_text)).json()["cvId"]
+    assert wait_until_processed(candidate, cv_id)["score"] == 76.0   # thieu AWS
+
+    updated = {**JOB, "requiredSkills": "Java, Docker"}
+    assert hr.put(f"/jobs/{job_id}", json=updated).status_code == 200
+
+    rescored = wait_until_processed(candidate, cv_id)
+    assert rescored["status"] == "PROCESSED"
+    assert rescored["score"] == 96.0   # du 2/2 ky nang * 80 + 4 nam * 4
+    assert rescored["missingSkills"] in ("", None)
+
+
+def test_file_doi_duoi_bi_tu_choi_truoc_khi_len_s3(hr, candidate):
+    job_id = create_job(hr)
+    r = upload(candidate, job_id, "cv.pdf", b"MZ\x90\x00 day la file exe", "application/pdf")
+    assert r.status_code == 400
+    assert "định dạng" in r.json()["message"]
+    # Upload loi khong duoc "chiem cho": nop lai file dung van thanh cong
+    assert upload(candidate, job_id, "cv.docx", docx_cv("Java")).status_code == 202
+
+
+def test_loi_chuan_tra_dung_ma_http(hr):
+    assert hr.get("/khong-ton-tai").status_code == 404
+    assert hr.session.put(f"{API}/jobs", timeout=10).status_code == 405
+    too_long = {**JOB, "title": "A" * 300}
+    r = hr.post("/jobs", json=too_long)
+    assert r.status_code == 400
+    assert "title" in r.json()["fieldErrors"]

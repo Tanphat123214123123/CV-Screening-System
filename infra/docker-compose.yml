@@ -75,6 +75,8 @@ services:
       DB_HOST: postgres
       DB_PORT: "5432"
       S3_ENDPOINT: http://minio:9000
+      # Presigned URL duoc TRINH DUYET mo: phai ky voi host trinh duyet thay duoc, khong phai "minio"
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
       SQS_ENDPOINT: http://elasticmq:9324
     depends_on:
       postgres:
@@ -83,7 +85,7 @@ services:
         condition: service_started
       elasticmq:
         condition: service_started
-    # MinIO/ElasticMQ co the chua san sang dung luc backend tao bucket/queue -> tu khoi dong lai
+    # MinIO/ElasticMQ chua san sang luc backend kiem tra bucket/queue -> backend dung (fail fast) va tu khoi dong lai
     restart: on-failure
 
   ai-worker:

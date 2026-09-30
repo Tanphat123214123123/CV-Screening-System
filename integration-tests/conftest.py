@@ -14,8 +14,11 @@ import requests
 from docx import Document
 
 API = os.getenv("API_URL", "http://localhost:8080/api")
+HEALTH_URL = os.getenv("HEALTH_URL", API.removesuffix("/api") + "/actuator/health")
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
 STARTUP_TIMEOUT = int(os.getenv("STARTUP_TIMEOUT", "180"))
+# Khop gia tri mac dinh cua app.auth.hr-invite-code (application.yml)
+HR_INVITE_CODE = os.getenv("HR_INVITE_CODE", "HR-DEMO-2026")
 
 
 class Client:
@@ -32,32 +35,42 @@ class Client:
     def post(self, path, **kw):
         return self.session.post(f"{API}{path}", timeout=30, **kw)
 
+    def put(self, path, **kw):
+        return self.session.put(f"{API}{path}", timeout=15, **kw)
+
     def patch(self, path, **kw):
         return self.session.patch(f"{API}{path}", timeout=15, **kw)
 
 
 @pytest.fixture(scope="session", autouse=True)
 def backend_ready():
-    """Doi backend khoi dong xong (build + migrate schema co the mat vai chuc giay)."""
+    """Doi backend UP that su (DB + migration Flyway xong) qua /actuator/health."""
     deadline = time.time() + STARTUP_TIMEOUT
     last_error = None
     while time.time() < deadline:
         try:
-            if requests.get(f"{API}/jobs", timeout=3).status_code < 500:
+            r = requests.get(HEALTH_URL, timeout=3)
+            if r.status_code == 200 and r.json().get("status") == "UP":
                 return
+            last_error = f"HTTP {r.status_code}: {r.text[:200]}"
         except requests.RequestException as exc:
             last_error = exc
         time.sleep(3)
     pytest.fail(f"Backend khong san sang sau {STARTUP_TIMEOUT}s: {last_error}")
 
 
+def register_raw(role: str, invite_code: str | None = None, email: str | None = None):
+    email = email or f"it-{role.lower()}-{uuid.uuid4().hex[:10]}@example.com"
+    body = {"fullName": f"Integration {role}", "email": email, "password": "secret123", "role": role}
+    if invite_code is not None:
+        body["hrInviteCode"] = invite_code
+    return requests.post(f"{API}/auth/register", timeout=15, json=body)
+
+
 def register(role: str) -> Client:
-    email = f"it-{role.lower()}-{uuid.uuid4().hex[:10]}@example.com"
-    r = requests.post(f"{API}/auth/register", timeout=15, json={
-        "fullName": f"Integration {role}", "email": email, "password": "secret123", "role": role,
-    })
+    r = register_raw(role, HR_INVITE_CODE if role == "HR" else None)
     assert r.status_code == 201, r.text
-    return Client(r.json()["token"], email)
+    return Client(r.json()["token"], r.json()["email"])
 
 
 @pytest.fixture
