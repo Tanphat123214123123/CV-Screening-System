@@ -23,10 +23,11 @@ services:
       retries: 10
 
   # S3-compatible storage cho moi truong dev
-  # Luu y: dung quay.io thay vi Docker Hub — tu 2024 MinIO gioi han pull anonymous
-  # tren Docker Hub (minio/minio, minio/mc), quay.io la kenh phan phoi chinh thuc con lai.
+  # Luu y: MinIO da ngung phat hanh image mien phi (Docker Hub minio/minio da bi go,
+  # quay.io/minio/* tra ve 401). Dung ban build cong dong cua Pigsty tu ma nguon
+  # MinIO (cung CLI/API). Ghim tag cu the de moi may pull ra cung mot ban.
   minio:
-    image: quay.io/minio/minio:latest
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: cvs-minio
     command: server /data --console-address ":9001"
     environment:
@@ -38,9 +39,9 @@ services:
     volumes:
       - miniodata:/data
 
-  # Tao san bucket cv-bucket khi khoi dong
+  # Tao san bucket cv-bucket khi khoi dong (khong bat buoc: backend cung tu tao bucket)
   minio-init:
-    image: quay.io/minio/mc:latest
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
     depends_on:
       - minio
     entrypoint: >
