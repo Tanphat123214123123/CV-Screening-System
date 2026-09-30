@@ -1,0 +1,33 @@
+{
+  "_comment": "Hop dong giua AI worker (Python) va frontend (TypeScript). Frontend chep lai 2 quy tac cua worker de canh bao HR va giai thich diem; ca 2 phia test voi CUNG file nay (ai-worker/tests/test_contracts.py, frontend/src/lib/contracts.test.ts) nen sua quy tac o mot phia ma quen phia kia thi CI do.",
+  "skillRecognition": {
+    "_comment": "recognized = ky nang yeu cau co khop duoc voi mot ky nang nao trong tu dien hay khong (matcher.match_skills).",
+    "dictionary": ["java", "javascript", "spring", "spring boot", "react", "react native", "sql", "sql server", "postgresql", "aws", "kafka", "go", "rest api", "c++"],
+    "cases": [
+      { "skill": "Java", "recognized": true },
+      { "skill": "  SPRING BOOT ", "recognized": true },
+      { "skill": "Spring", "recognized": true },
+      { "skill": "React Native", "recognized": true },
+      { "skill": "Kafka Streams", "recognized": true },
+      { "skill": "REST API", "recognized": true },
+      { "skill": "C++", "recognized": true },
+      { "skill": "Go", "recognized": true },
+      { "skill": "Tiếng Anh", "recognized": false },
+      { "skill": "Communication", "recognized": false },
+      { "skill": "ReactJS", "recognized": false },
+      { "skill": "Postgres", "recognized": false },
+      { "skill": "Golang", "recognized": false }
+    ]
+  },
+  "scoring": {
+    "_comment": "score = scorer.compute_score(matched / (matched + missing), years).",
+    "cases": [
+      { "matched": 3, "missing": 1, "years": 4, "score": 76.0 },
+      { "matched": 4, "missing": 0, "years": 5, "score": 100.0 },
+      { "matched": 4, "missing": 0, "years": 12, "score": 100.0 },
+      { "matched": 1, "missing": 2, "years": 0, "score": 26.7 },
+      { "matched": 2, "missing": 5, "years": 1, "score": 26.9 },
+      { "matched": 0, "missing": 3, "years": 2, "score": 8.0 }
+    ]
+  }
+}

@@ -3,11 +3,22 @@
 Moi test o day kiem nhung thu unit test (mock) khong bat duoc: cac service
 that phoi hop voi nhau, phan quyen qua JWT, CORS cua trinh duyet.
 """
+import time
 import uuid
 
 import requests
 
-from conftest import API, FRONTEND_ORIGIN, HR_INVITE_CODE, docx_cv, register_raw, upload, wait_until_processed
+from conftest import (
+    API,
+    BLANK_PDF,
+    FRONTEND_ORIGIN,
+    HR_INVITE_CODE,
+    docx_cv,
+    hr_view,
+    register_raw,
+    upload,
+    wait_until_processed,
+)
 
 JOB = {
     "title": "Integration Java Backend",
@@ -36,12 +47,14 @@ def test_luong_chinh_nop_cv_ai_cham_diem_hr_shortlist(hr, candidate):
     # 2) AI worker nhan message, tai file tu S3, cham diem, ghi Postgres
     app = wait_until_processed(candidate, cv_id)
     assert app["status"] == "PROCESSED", "worker danh dau FAILED - xem log ai-worker"
-    # 3/4 ky nang (thieu AWS) * 80 + 4 nam * 4 = 76
-    assert app["score"] == 76.0
+    # Ung vien chi thay muc phu hop, KHONG thay diem so (diem danh cho HR)
+    assert "score" not in app
+    assert app["fitLevel"] == "HIGH"
+    assert app["reviewStatus"] == "NEW"
     assert set(app["matchedSkills"].split(", ")) == {"java", "spring boot", "docker"}
     assert app["missingSkills"] == "aws"
 
-    # 3) HR thay ung vien, kem diem + trang thai xu ly mac dinh NEW
+    # 3) HR thay ung vien, kem diem + trang thai xu ly mac dinh NEW. 3/4 ky nang * 80 + 4 nam * 4 = 76
     candidates = hr.get(f"/matching/job/{job_id}").json()
     assert [(c["cvId"], c["score"], c["reviewStatus"]) for c in candidates] == [(cv_id, 76.0, "NEW")]
 
@@ -143,14 +156,15 @@ def test_doi_ky_nang_jd_thi_cham_lai_toan_bo_cv(hr, candidate):
     job_id = create_job(hr)
     cv_text = "4 years experience\nSkills: Java, Spring Boot, Docker"
     cv_id = upload(candidate, job_id, "cv.docx", docx_cv(cv_text)).json()["cvId"]
-    assert wait_until_processed(candidate, cv_id)["score"] == 76.0   # thieu AWS
+    wait_until_processed(candidate, cv_id)
+    assert hr_view(hr, job_id, cv_id)["score"] == 76.0   # thieu AWS
 
     updated = {**JOB, "requiredSkills": "Java, Docker"}
     assert hr.put(f"/jobs/{job_id}", json=updated).status_code == 200
 
     rescored = wait_until_processed(candidate, cv_id)
     assert rescored["status"] == "PROCESSED"
-    assert rescored["score"] == 96.0   # du 2/2 ky nang * 80 + 4 nam * 4
+    assert hr_view(hr, job_id, cv_id)["score"] == 96.0   # du 2/2 ky nang * 80 + 4 nam * 4
     assert rescored["missingSkills"] in ("", None)
 
 
@@ -170,3 +184,43 @@ def test_loi_chuan_tra_dung_ma_http(hr):
     r = hr.post("/jobs", json=too_long)
     assert r.status_code == 400
     assert "title" in r.json()["fieldErrors"]
+
+
+def test_cv_ai_khong_doc_duoc_thi_nop_lai_duoc(hr, candidate):
+    """Regression UX: CV FAILED tung la ngo cut - nop lai bi 409 "da nop roi" vinh vien."""
+    job_id = create_job(hr)
+    cv_id = upload(candidate, job_id, "scan.pdf", BLANK_PDF, "application/pdf").json()["cvId"]
+    assert wait_until_processed(candidate, cv_id)["status"] == "FAILED"
+    # HR loai ho so hong (duoc phep voi CV FAILED)
+    assert hr.patch(f"/cv/{cv_id}/review-status", json={"status": "REJECTED"}).status_code == 204
+
+    new_cv = docx_cv("4 years experience\nSkills: Java, Spring Boot, Docker")
+    r = upload(candidate, job_id, "cv-moi.docx", new_cv)
+    assert r.status_code == 202, r.text
+    assert r.json()["cvId"] == cv_id, "cap nhat ho so cu, khong tao ho so thu hai"
+
+    app = wait_until_processed(candidate, cv_id)
+    assert app["status"] == "PROCESSED"
+    assert app["fileName"] == "cv-moi.docx"
+    # Quyet dinh cu dua tren file hong bi xoa
+    assert app["reviewStatus"] == "NEW"
+    assert hr_view(hr, job_id, cv_id)["score"] == 76.0
+    assert len(hr.get(f"/matching/job/{job_id}").json()) == 1
+
+    # Da cham xong thi khong nop lai duoc nua
+    assert upload(candidate, job_id, "cv3.docx", docx_cv("Java")).status_code == 409
+
+
+def test_tu_dien_ky_nang_do_worker_dong_bo(hr, candidate):
+    """Worker ghi SKILL_KEYWORDS vao DB luc khoi dong; backend tra ra cho form dang tin canh bao HR."""
+    deadline = time.time() + 60
+    skills = []
+    while time.time() < deadline:
+        skills = hr.get("/skills").json()["skills"]
+        if skills:
+            break
+        time.sleep(2)
+    assert {"java", "spring boot", "docker", "aws"} <= set(skills)
+    assert "tiếng anh" not in skills
+    assert skills == sorted(skills)
+    assert candidate.get("/skills").status_code == 403
