@@ -9,12 +9,17 @@ ai-worker/venv/
 ai-worker/__pycache__/
 ai-worker/**/__pycache__/
 ai-worker/.pytest_cache/
+ai-worker/.ruff_cache/
+ai-worker/.coverage
+ai-worker/htmlcov/
+integration-tests/.pytest_cache/
 *.pyc
 .env
 
 # --- Frontend (Node) ---
 frontend/node_modules/
 frontend/dist/
+frontend/coverage/
 frontend/.env
 frontend/.env.local
 frontend/*.tsbuildinfo

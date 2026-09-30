@@ -1,0 +1,32 @@
+# Tu dong mo PR cap nhat thu vien (va canh bao lo hong bao mat) moi tuan.
+# Gom nhom ban va minor/patch vao 1 PR/he sinh thai de khong bi ngap PR.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /backend
+    schedule: { interval: weekly }
+    groups:
+      backend:
+        update-types: [minor, patch]
+
+  - package-ecosystem: pip
+    directory: /ai-worker
+    schedule: { interval: weekly }
+    groups:
+      ai-worker:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule: { interval: weekly }
+    groups:
+      frontend:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directories: [/backend, /ai-worker]
+    schedule: { interval: monthly }
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }

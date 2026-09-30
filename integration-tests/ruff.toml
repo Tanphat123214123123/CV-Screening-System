@@ -1,0 +1,6 @@
+# Dung chung luat lint voi AI worker
+extend = "../ai-worker/pyproject.toml"
+
+[lint.isort]
+# conftest.py la module cuc bo cua bo test
+known-first-party = ["conftest"]
