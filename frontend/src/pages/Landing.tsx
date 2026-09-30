@@ -114,7 +114,13 @@ export default function Landing() {
           </article>
           <article className="card p-6 md:col-span-4">
             <MessageSquareQuote className="h-5 w-5 text-moss" aria-hidden="true" />
-            <h3 className="mt-3 text-lg font-semibold">Nhận xét như một đồng nghiệp</h3>
+            <h3 className="mt-3 flex flex-wrap items-center gap-2 text-lg font-semibold">
+              Nhận xét như một đồng nghiệp
+              {/* Chi co khi cau hinh LLM cho AI worker - khong hua tinh nang ban mac dinh khong co */}
+              <span className="rounded-full bg-amber/15 px-2 py-0.5 font-sans text-[11px] font-semibold text-amber">
+                Tuỳ chọn · dùng LLM
+              </span>
+            </h3>
             <blockquote className="mt-3 border-l-2 border-amber pl-4 font-display text-lg italic text-ink/75">
               “Nền tảng Spring Boot vững, đã triển khai trên AWS. Cần hỏi thêm về kinh nghiệm message queue.”
             </blockquote>

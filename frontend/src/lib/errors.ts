@@ -11,3 +11,12 @@ export function getErrorMessage(error: unknown, fallback: string): string {
   }
   return fallback;
 }
+
+/** Loi validate theo tung truong backend tra ve (ApiError.fieldErrors), rong neu khong co. */
+export function getFieldErrors(error: unknown): Record<string, string> {
+  if (isAxiosError(error)) {
+    const fieldErrors = (error.response?.data as Partial<ApiErrorBody> | undefined)?.fieldErrors;
+    if (fieldErrors && typeof fieldErrors === 'object') return fieldErrors;
+  }
+  return {};
+}

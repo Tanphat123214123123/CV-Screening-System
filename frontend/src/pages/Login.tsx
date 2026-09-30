@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, Briefcase, UserRound } from 'lucide-react';
 import AuthLayout from '../components/layout/AuthLayout';
+import PasswordInput from '../components/ui/PasswordInput';
 import { useAuth } from '../context/AuthContext';
-import { getErrorMessage } from '../lib/errors';
+import { getErrorMessage, getFieldErrors } from '../lib/errors';
+import { postLoginPath } from '../lib/navigation';
 import { login } from '../services/authService';
 
 const demoAccounts = [
@@ -15,20 +17,25 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const { setUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
     setLoading(true);
     try {
       const user = await login(email.trim(), password);
       setUser(user);
-      navigate(user.role === 'HR' ? '/hr' : '/jobs');
+      navigate(postLoginPath(location, user.role), { replace: true });
     } catch (err) {
-      setError(getErrorMessage(err, 'Đăng nhập thất bại'));
+      const byField = getFieldErrors(err);
+      setFieldErrors(byField);
+      if (Object.keys(byField).length === 0) setError(getErrorMessage(err, 'Đăng nhập thất bại'));
     } finally {
       setLoading(false);
     }
@@ -50,22 +57,22 @@ export default function Login() {
             placeholder="ban@congty.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            aria-invalid={!!error}
+            aria-invalid={!!error || !!fieldErrors.email}
             className="input"
           />
+          {fieldErrors.email && <p className="mt-1.5 text-xs font-medium text-clay">{fieldErrors.email}</p>}
         </div>
         <div>
           <label htmlFor="login-password" className="field-label">Mật khẩu</label>
-          <input
+          <PasswordInput
             id="login-password"
-            type="password"
             required
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            aria-invalid={!!error}
-            className="input"
+            aria-invalid={!!error || !!fieldErrors.password}
           />
+          {fieldErrors.password && <p className="mt-1.5 text-xs font-medium text-clay">{fieldErrors.password}</p>}
         </div>
         {error && <p role="alert" className="text-sm font-medium text-clay">{error}</p>}
         <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base">
@@ -86,6 +93,7 @@ export default function Login() {
                   setEmail(demoEmail);
                   setPassword('123456');
                   setError('');
+                  setFieldErrors({});
                 }}
                 className="flex items-center gap-2.5 rounded-xl border border-ink/10 px-3 py-2.5 text-left transition hover:border-moss/40 hover:bg-moss/5"
               >

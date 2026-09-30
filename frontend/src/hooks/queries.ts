@@ -15,6 +15,7 @@ import {
   updateJob,
   type JobInput,
 } from '../services/jobService';
+import { getSkillDictionary } from '../services/skillService';
 import type { CandidateMatch, CvStatus, ReviewStatus } from '../types';
 
 export const queryKeys = {
@@ -48,12 +49,17 @@ export const useMyApplications = (enabled = true) =>
 export function useUploadCv() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ jobId, file }: { jobId: number; file: File }) => uploadCv(jobId, file),
+    mutationFn: ({ jobId, file, onProgress }: { jobId: number; file: File; onProgress?: (p: number) => void }) =>
+      uploadCv(jobId, file, onProgress),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.myApplications }),
   });
 }
 
 // ---------- HR ----------
+
+/** Tu dien ky nang cua AI - doi rat hiem (chi khi deploy worker moi) nen cache lau. */
+export const useSkillDictionary = () =>
+  useQuery({ queryKey: ['skill-dictionary'], queryFn: getSkillDictionary, staleTime: 30 * 60_000 });
 
 export const useMyJobs = () =>
   useQuery({

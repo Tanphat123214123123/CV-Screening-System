@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { initials } from '../../lib/format';
 import SieveMark, { Wordmark } from '../brand/SieveMark';
+import SessionWatcher from './SessionWatcher';
 
 const navByRole = {
   HR: [{ to: '/hr', label: 'Tổng quan', Icon: LayoutDashboard }],
@@ -57,6 +58,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <SessionWatcher />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-surface focus:px-4 focus:py-2">
         Bỏ qua điều hướng
       </a>
