@@ -50,7 +50,7 @@ jobs:
         working-directory: ai-worker
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
@@ -106,7 +106,7 @@ jobs:
       - name: Build images & start stack
         working-directory: infra
         run: docker compose --profile app up -d --build --quiet-pull
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
