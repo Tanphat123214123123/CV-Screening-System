@@ -4,8 +4,7 @@ import com.cvscreening.cv.CvDtos.CvUploadResponse;
 import com.cvscreening.cv.CvDtos.DownloadUrlResponse;
 import com.cvscreening.cv.CvDtos.MyApplicationResponse;
 import com.cvscreening.cv.CvDtos.ReviewStatusRequest;
-import com.cvscreening.user.User;
-import com.cvscreening.user.UserService;
+import com.cvscreening.user.AppUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -14,7 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -23,46 +22,41 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/cv")
 @RequiredArgsConstructor
-@Tag(name = "CV", description = "Nop va quan ly CV")
+@Tag(name = "CV", description = "Nộp và quản lý CV")
 public class CvController {
 
     private final CvService cvService;
-    private final UserService userService;
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('CANDIDATE')")
-    @Operation(summary = "Ung vien nop CV (PDF/DOCX) cho mot tin tuyen dung")
+    @Operation(summary = "Ứng viên nộp CV (PDF/DOCX) cho một tin tuyển dụng")
     public ResponseEntity<CvUploadResponse> upload(@RequestParam("file") MultipartFile file,
                                                    @RequestParam("jobId") Long jobId,
-                                                   Authentication auth) {
-        User candidate = userService.getByEmail(auth.getName());
+                                                   @AuthenticationPrincipal AppUserDetails me) {
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(cvService.upload(file, jobId, candidate));
+                .body(cvService.upload(file, jobId, me.user()));
     }
 
     @GetMapping("/mine")
     @PreAuthorize("hasRole('CANDIDATE')")
-    @Operation(summary = "Danh sach don ung tuyen cua ung vien hien tai")
-    public List<MyApplicationResponse> myApplications(Authentication auth) {
-        User candidate = userService.getByEmail(auth.getName());
-        return cvService.getMyApplications(candidate);
+    @Operation(summary = "Danh sách đơn ứng tuyển của ứng viên hiện tại")
+    public List<MyApplicationResponse> myApplications(@AuthenticationPrincipal AppUserDetails me) {
+        return cvService.getMyApplications(me.user());
     }
 
     @PatchMapping("/{id}/review-status")
     @PreAuthorize("hasRole('HR')")
-    @Operation(summary = "HR danh dau ho so: NEW / SHORTLISTED / REJECTED")
+    @Operation(summary = "HR đánh dấu hồ sơ: NEW / SHORTLISTED / REJECTED")
     public ResponseEntity<Void> updateReviewStatus(@PathVariable Long id,
                                                    @Valid @RequestBody ReviewStatusRequest request,
-                                                   Authentication auth) {
-        User hr = userService.getByEmail(auth.getName());
-        cvService.updateReviewStatus(id, request.status(), hr);
+                                                   @AuthenticationPrincipal AppUserDetails me) {
+        cvService.updateReviewStatus(id, request.status(), me.user());
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/download")
-    @Operation(summary = "Lay presigned URL de tai file CV (HR hoac chinh chu)")
-    public DownloadUrlResponse download(@PathVariable Long id, Authentication auth) {
-        User requester = userService.getByEmail(auth.getName());
-        return new DownloadUrlResponse(cvService.getDownloadUrl(id, requester));
+    @Operation(summary = "Lấy presigned URL để tải file CV (HR chủ tin hoặc chính chủ)")
+    public DownloadUrlResponse download(@PathVariable Long id, @AuthenticationPrincipal AppUserDetails me) {
+        return new DownloadUrlResponse(cvService.getDownloadUrl(id, me.user()));
     }
 }

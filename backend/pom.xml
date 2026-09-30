@@ -7,7 +7,8 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version>
+        <!-- 3.2.x da het ho tro OSS; Spring Security 6.2.x dinh CVE-2025-22228 (BCrypt > 72 byte) -->
+        <version>3.5.16</version>
         <relativePath/>
     </parent>
 
@@ -20,11 +21,7 @@
     <properties>
         <java.version>17</java.version>
         <awssdk.version>2.25.31</awssdk.version>
-        <jjwt.version>0.11.5</jjwt.version>
-        <!-- Override version tu spring-boot-starter-parent: ban cu khong ho tro JDK 22/23 -->
-        <lombok.version>1.18.36</lombok.version>
-        <mockito.version>5.14.2</mockito.version>
-        <byte-buddy.version>1.15.10</byte-buddy.version>
+        <jjwt.version>0.13.0</jjwt.version>
     </properties>
 
     <dependencyManagement>
@@ -56,12 +53,25 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!-- /actuator/health: docker/CI/load balancer biet backend da san sang -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
 
-        <!-- Database -->
+        <!-- Database: schema do Flyway quan ly (src/main/resources/db/migration), Hibernate chi validate -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
         <!-- JWT -->
@@ -97,7 +107,7 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.5.0</version>
+            <version>2.8.17</version>
         </dependency>
 
         <!-- Lombok -->
@@ -116,6 +126,22 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Test repository/migration tren PostgreSQL that (tu bo qua neu may khong co Docker) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

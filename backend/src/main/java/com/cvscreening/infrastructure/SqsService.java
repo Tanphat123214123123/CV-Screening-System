@@ -1,19 +1,18 @@
 package com.cvscreening.infrastructure;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.CreateQueueRequest;
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest;
 import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
 
-import java.util.Map;
-
 /**
- * Gui message vao Amazon SQS (hoac ElasticMQ khi chay local)
- * de AI Worker xu ly CV bat dong bo.
+ * Gui message vao Amazon SQS (hoac ElasticMQ khi chay local).
+ * Chi duoc goi tu OutboxRelay — nghiep vu KHONG gui truc tiep (xem outbox.OutboxService).
  */
 @Service
 @RequiredArgsConstructor
@@ -21,38 +20,33 @@ import java.util.Map;
 public class SqsService {
 
     private final SqsClient sqsClient;
-    private final ObjectMapper objectMapper;
 
     @Value("${app.aws.queue-name}")
     private String queueName;
 
-    private String queueUrl;
+    @Value("${app.aws.auto-create-resources:false}")
+    private boolean autoCreate;
 
-    private String getQueueUrl() {
-        if (queueUrl == null) {
-            // createQueue la idempotent: neu queue da ton tai thi tra ve URL hien co
-            queueUrl = sqsClient.createQueue(
-                    CreateQueueRequest.builder().queueName(queueName).build()).queueUrl();
-        }
-        return queueUrl;
+    /** Gan mot lan luc khoi dong, sau do chi doc -> an toan khi nhieu thread cung gui. */
+    private volatile String queueUrl;
+
+    /**
+     * Xac dinh queue URL ngay khi khoi dong (truoc day khoi tao lazy, khong thread-safe).
+     * Dev: createQueue (idempotent). Production: getQueueUrl — queue tao bang IaC, IAM khong can
+     * quyen sqs:CreateQueue. Queue khong ton tai -> khong khoi dong duoc, bao loi ngay.
+     */
+    @PostConstruct
+    void resolveQueueUrl() {
+        queueUrl = autoCreate
+                ? sqsClient.createQueue(CreateQueueRequest.builder().queueName(queueName).build()).queueUrl()
+                : sqsClient.getQueueUrl(GetQueueUrlRequest.builder().queueName(queueName).build()).queueUrl();
+        log.info("SQS queue: {}", queueUrl);
     }
 
-    /** Message JSON: { "cvId": ..., "jobId": ..., "s3Key": ..., "fileName": ... } */
-    public void sendCvProcessingMessage(Long cvId, Long jobId, String s3Key, String fileName) {
-        try {
-            String body = objectMapper.writeValueAsString(Map.of(
-                    "cvId", cvId,
-                    "jobId", jobId,
-                    "s3Key", s3Key,
-                    "fileName", fileName
-            ));
-            sqsClient.sendMessage(SendMessageRequest.builder()
-                    .queueUrl(getQueueUrl())
-                    .messageBody(body)
-                    .build());
-            log.info("Da gui message xu ly CV #{} vao queue", cvId);
-        } catch (Exception e) {
-            throw new RuntimeException("Loi gui message vao SQS", e);
-        }
+    public void send(String messageBody) {
+        sqsClient.sendMessage(SendMessageRequest.builder()
+                .queueUrl(queueUrl)
+                .messageBody(messageBody)
+                .build());
     }
 }

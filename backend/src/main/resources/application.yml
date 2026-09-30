@@ -1,3 +1,6 @@
+# Cau hinh chung + gia tri mac dinh cho DEV local.
+# Deploy that: chay voi SPRING_PROFILES_ACTIVE=prod (xem application-prod.yml) — profile nay
+# BO het gia tri mac dinh nguy hiem va bat buoc khai bao secret qua bien moi truong.
 server:
   port: 8080
 
@@ -10,8 +13,15 @@ spring:
     password: ${DB_PASSWORD:postgres}
   jpa:
     hibernate:
-      ddl-auto: update
+      # Schema do Flyway quan ly (db/migration). Hibernate chi kiem tra entity khop voi schema,
+      # lech la khong khoi dong — thay vi am tham ALTER TABLE nhu ddl-auto: update.
+      ddl-auto: validate
     open-in-view: false
+  flyway:
+    # DB cu do Hibernate tu tao (chua co bang flyway_schema_history): danh dau baseline = 0
+    # roi chay V1 (CREATE ... IF NOT EXISTS, khong dung du lieu cu) va V2 (constraint/index).
+    baseline-on-migrate: true
+    baseline-version: 0
   servlet:
     multipart:
       max-file-size: 5MB
@@ -19,20 +29,53 @@ spring:
 
 app:
   jwt:
-    # Doi secret nay khi deploy that (>= 32 ky tu)
+    # Chi dung cho dev. Profile prod bat buoc dat JWT_SECRET (>= 32 byte ngau nhien).
     secret: ${JWT_SECRET:cv-screening-secret-key-change-me-in-production-2026}
     expiration-ms: ${JWT_EXPIRATION:86400000}   # 24h
+  auth:
+    # Ma moi bat buoc khi dang ky tai khoan HR. De trong = tat han dang ky HR cong khai.
+    hr-invite-code: ${HR_INVITE_CODE:HR-DEMO-2026}
+    login:
+      # Sai mat khau qua max-attempts lan trong window -> khoa lock-duration (tra 429)
+      max-attempts-per-email: 5
+      max-attempts-per-ip: 20
+      window: 15m
+      lock-duration: 15m
   aws:
     region: ${AWS_REGION:ap-southeast-1}
+    # De trong -> dung DefaultCredentialsProvider (IAM role cua ECS/EC2, ~/.aws, bien moi truong)
     access-key: ${AWS_ACCESS_KEY_ID:minioadmin}
     secret-key: ${AWS_SECRET_ACCESS_KEY:minioadmin}
-    # Khi chay local: tro ve MinIO / ElasticMQ. Khi deploy AWS that: dat S3_ENDPOINT/SQS_ENDPOINT = rong
+    # Local: MinIO / ElasticMQ. AWS that: de trong.
     s3-endpoint: ${S3_ENDPOINT:http://localhost:9000}
+    # Endpoint S3 ma TRINH DUYET truy cap duoc, dung de ky presigned URL. Khac s3-endpoint khi
+    # backend chay trong Docker (noi bo: http://minio:9000, trinh duyet: http://localhost:9000).
+    # De trong = dung chung s3-endpoint.
+    s3-public-endpoint: ${S3_PUBLIC_ENDPOINT:}
     sqs-endpoint: ${SQS_ENDPOINT:http://localhost:9324}
     bucket: ${S3_BUCKET:cv-bucket}
     queue-name: ${SQS_QUEUE:cv-processing-queue}
+    # Tu tao bucket/queue khi khoi dong (tien cho dev). Production: tao bang IaC, tat di de
+    # IAM khong can quyen s3:CreateBucket / sqs:CreateQueue.
+    auto-create-resources: ${AWS_AUTO_CREATE_RESOURCES:true}
+  outbox:
+    # Chu ky day message tu bang outbox_messages sang SQS
+    poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:1000}
+    batch-size: 50
+    # Xoa message da gui xong sau bao lau
+    retention: 7d
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:5173}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
 
 springdoc:
   swagger-ui:

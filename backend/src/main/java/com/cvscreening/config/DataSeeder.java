@@ -8,11 +8,16 @@ import com.cvscreening.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-/** Seed du lieu demo: 1 tai khoan HR, 1 tai khoan ung vien, 1 tin tuyen dung mau. */
+/**
+ * Seed du lieu demo: 1 tai khoan HR, 1 tai khoan ung vien, 1 tin tuyen dung mau.
+ * KHONG chay o profile prod: tai khoan mat khau "123456" cong khai trong README la cua hau.
+ */
 @Component
+@Profile("!prod")
 @RequiredArgsConstructor
 @Slf4j
 public class DataSeeder implements CommandLineRunner {
