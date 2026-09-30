@@ -1,15 +1,30 @@
 package com.cvscreening.job;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
 
 public class JobDtos {
 
+    /**
+     * Gioi han do dai: title/location la varchar(255) trong DB (vuot qua truoc day thanh 500);
+     * description/requiredSkills la TEXT nhung van phai chan tren de khong ai gui hang chuc MB.
+     */
     public record JobRequest(
-            @NotBlank(message = "Tieu de khong duoc de trong") String title,
-            @NotBlank(message = "Mo ta khong duoc de trong") String description,
-            @NotBlank(message = "Ky nang yeu cau khong duoc de trong") String requiredSkills,
+            @NotBlank(message = "Tiêu đề không được để trống.")
+            @Size(max = 200, message = "Tiêu đề tối đa 200 ký tự.")
+            String title,
+
+            @NotBlank(message = "Mô tả không được để trống.")
+            @Size(max = 10_000, message = "Mô tả tối đa 10.000 ký tự.")
+            String description,
+
+            @NotBlank(message = "Kỹ năng yêu cầu không được để trống.")
+            @Size(max = 1_000, message = "Kỹ năng yêu cầu tối đa 1.000 ký tự.")
+            String requiredSkills,
+
+            @Size(max = 200, message = "Địa điểm tối đa 200 ký tự.")
             String location
     ) {}
 

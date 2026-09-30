@@ -10,6 +10,7 @@ import com.cvscreening.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
@@ -27,14 +28,16 @@ public class MatchingService {
     private final JobRepository jobRepository;
 
     /**
-     * Tra ve danh sach ung vien cua mot tin tuyen dung, sap xep theo diem giam dan.
-     * CV chua xu ly xong (PENDING) van hien thi voi score = null.
+     * Danh sach ung vien cua mot tin tuyen dung, diem cao dung dau.
+     * CV chua cham xong (PENDING/FAILED) van hien thi voi score = null, xep cuoi (cu nhat truoc).
+     * Doc trong MOT transaction read-only de 3 truy van thay cung mot trang thai du lieu.
      */
+    @Transactional(readOnly = true)
     public List<CandidateMatchResponse> getCandidatesForJob(Long jobId, User hr) {
         var job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Khong tim thay tin tuyen dung"));
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy tin tuyển dụng."));
         if (!job.getCreatedBy().equals(hr.getId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Ban khong phai nguoi tao tin nay");
+            throw new ApiException(HttpStatus.FORBIDDEN, "Bạn không phải người tạo tin này.");
         }
 
         List<Cv> cvs = cvRepository.findByJobIdOrderByUploadedAtDesc(jobId);
@@ -47,11 +50,12 @@ public class MatchingService {
         return cvs.stream()
                 .map(cv -> {
                     MatchResult result = resultsByCvId.get(cv.getId());
+                    // Co khoa ngoai fk_cvs_candidate nen ung vien luon ton tai
                     User candidate = candidatesById.get(cv.getCandidateId());
                     return new CandidateMatchResponse(
                             cv.getId(),
-                            candidate != null ? candidate.getFullName() : "(khong xac dinh)",
-                            candidate != null ? candidate.getEmail() : "",
+                            candidate.getFullName(),
+                            candidate.getEmail(),
                             cv.getFileName(),
                             cv.getStatus().name(),
                             cv.getReviewStatus().name(),
@@ -60,11 +64,13 @@ public class MatchingService {
                             result != null ? result.getMissingSkills() : null,
                             result != null ? result.getSummary() : null,
                             result != null ? result.getYearsExperience() : null,
-                            cv.getUploadedAt()
+                            cv.getUploadedAt(),
+                            cv.getReviewedAt()
                     );
                 })
                 .sorted(Comparator.comparing(CandidateMatchResponse::score,
-                        Comparator.nullsLast(Comparator.reverseOrder())))
+                                Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(CandidateMatchResponse::uploadedAt))
                 .toList();
     }
 }

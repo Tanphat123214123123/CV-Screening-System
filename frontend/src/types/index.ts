@@ -39,6 +39,8 @@ export interface MyApplication {
   jobTitle: string;
   fileName: string;
   status: CvStatus;
+  /** Ket qua HR xet duyet ho so. */
+  reviewStatus: ReviewStatus;
   score: number | null;
   matchedSkills: string | null;
   missingSkills: string | null;
@@ -58,4 +60,15 @@ export interface CandidateMatch {
   summary: string | null;
   yearsExperience: number | null;
   uploadedAt: string;
+  /** Lan cuoi HR doi reviewStatus; null neu chua xet duyet. */
+  reviewedAt: string | null;
+}
+
+/** Body loi thong nhat cua backend (ApiError). */
+export interface ApiErrorBody {
+  timestamp: string;
+  status: number;
+  message: string;
+  /** Chi co khi loi validate: ten truong -> thong bao. */
+  fieldErrors?: Record<string, string>;
 }

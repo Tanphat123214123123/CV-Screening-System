@@ -7,6 +7,9 @@ import { getErrorMessage } from '../lib/errors';
 import { register } from '../services/authService';
 import type { Role } from '../types';
 
+const MIN_PASSWORD = 8;
+const MAX_PASSWORD = 72;
+
 const roles: { value: Role; label: string; hint: string; Icon: typeof Briefcase }[] = [
   { value: 'CANDIDATE', label: 'Ứng viên', hint: 'Tìm việc & nộp CV', Icon: UserRound },
   { value: 'HR', label: 'Nhà tuyển dụng', hint: 'Đăng tin & sàng lọc', Icon: Briefcase },
@@ -17,6 +20,7 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<Role>('CANDIDATE');
+  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { setUser } = useAuth();
@@ -24,14 +28,19 @@ export default function Register() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) {
-      setError('Mật khẩu cần tối thiểu 6 ký tự.');
+    // Khop RegisterRequest phia backend: 8-72 ky tu
+    if (password.length < MIN_PASSWORD || password.length > MAX_PASSWORD) {
+      setError(`Mật khẩu phải dài từ ${MIN_PASSWORD} đến ${MAX_PASSWORD} ký tự.`);
+      return;
+    }
+    if (role === 'HR' && !inviteCode.trim()) {
+      setError('Tài khoản nhà tuyển dụng cần mã mời.');
       return;
     }
     setError('');
     setLoading(true);
     try {
-      const user = await register(fullName.trim(), email.trim(), password, role);
+      const user = await register(fullName.trim(), email.trim(), password, role, inviteCode.trim());
       setUser(user);
       navigate(user.role === 'HR' ? '/hr' : '/jobs');
     } catch (err) {
@@ -98,15 +107,33 @@ export default function Register() {
             id="reg-password"
             type="password"
             required
-            minLength={6}
+            minLength={MIN_PASSWORD}
+            maxLength={MAX_PASSWORD}
             autoComplete="new-password"
             aria-describedby="reg-password-hint"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="input"
           />
-          <p id="reg-password-hint" className="mt-1.5 text-xs text-ink/50">Tối thiểu 6 ký tự.</p>
+          <p id="reg-password-hint" className="mt-1.5 text-xs text-ink/50">Tối thiểu {MIN_PASSWORD} ký tự.</p>
         </div>
+        {role === 'HR' && (
+          <div>
+            <label htmlFor="reg-invite" className="field-label">Mã mời nhà tuyển dụng</label>
+            <input
+              id="reg-invite"
+              required
+              autoComplete="off"
+              aria-describedby="reg-invite-hint"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              className="input"
+            />
+            <p id="reg-invite-hint" className="mt-1.5 text-xs text-ink/50">
+              Do quản trị viên hệ thống cấp. Tài khoản nhà tuyển dụng xem được CV của ứng viên nên cần xác minh.
+            </p>
+          </div>
+        )}
         {error && <p role="alert" className="text-sm font-medium text-clay">{error}</p>}
         <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base">
           {loading ? 'Đang tạo…' : <>Đăng ký <ArrowRight className="h-4 w-4" aria-hidden="true" /></>}

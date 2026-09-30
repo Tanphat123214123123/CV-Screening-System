@@ -78,6 +78,7 @@ describe('filterCandidates', () => {
     summary: null,
     yearsExperience: null,
     uploadedAt: '2026-01-01T00:00:00Z',
+    reviewedAt: null,
     ...over,
   });
 

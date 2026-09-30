@@ -64,10 +64,15 @@ $env:DB_PORT="5433"
 .\mvnw spring-boot:run
 ```
 
-- API: http://localhost:8080 · Swagger: http://localhost:8080/swagger-ui.html
-- Schema DB tự tạo, kèm dữ liệu demo:
+- API: http://localhost:8080 · Swagger: http://localhost:8080/swagger-ui.html · Health: http://localhost:8080/actuator/health
+- Schema DB do **Flyway** tạo và nâng cấp tự động khi khởi động (`backend/src/main/resources/db/migration`). Hibernate chỉ kiểm tra entity khớp schema (`ddl-auto: validate`).
+  - DB dev cũ (do phiên bản trước tự tạo bằng Hibernate) được nâng cấp **giữ nguyên dữ liệu**: V2 chuẩn hoá email về chữ thường, thêm khoá ngoại / index / constraint có tên, xoá kết quả chấm mồ côi.
+- Dữ liệu demo (chỉ ở môi trường dev, **không** seed ở profile `prod`):
   - HR: `hr@demo.com` / `123456`
   - Ứng viên: `candidate@demo.com` / `123456`
+- Đăng ký tài khoản **nhà tuyển dụng** cần mã mời `HR_INVITE_CODE` (dev mặc định: `HR-DEMO-2026`). Ứng viên đăng ký tự do.
+- Đăng nhập sai 5 lần / 15 phút với cùng email (hoặc 20 lần từ cùng IP) sẽ bị khoá 15 phút (HTTP 429).
+- Backend kiểm tra bucket S3 và queue SQS ngay khi khởi động: phải bật hạ tầng ở bước 1 trước, nếu không backend dừng và báo lỗi rõ ràng.
 
 ### 3. AI Worker
 
@@ -111,7 +116,7 @@ npm test       # Vitest + Testing Library
 
 | Tầng | Công cụ | Lệnh |
 |---|---|---|
-| Backend | JUnit 5 + Mockito, JaCoCo (coverage) | `cd backend && ./mvnw verify` → báo cáo ở `target/site/jacoco/` |
+| Backend | JUnit 5 + Mockito, `@WebMvcTest` (security + mã lỗi HTTP), Testcontainers PostgreSQL (migration, constraint, truy vấn), JaCoCo | `cd backend && ./mvnw verify` → báo cáo ở `target/site/jacoco/` |
 | AI worker | pytest + pytest-cov, ruff (lint) | `cd ai-worker && ruff check . && pytest --cov` |
 | Frontend | Vitest + Testing Library, ESLint | `cd frontend && npm run lint && npm run test:coverage` |
 | **Tích hợp (end-to-end)** | pytest gọi API thật trên toàn bộ hệ thống Docker | xem bên dưới |
@@ -128,6 +133,8 @@ cd ../infra && docker compose --profile app down   # thêm -v để xoá dữ li
 ```
 
 > Test tự tạo user/tin với email ngẫu nhiên nên chạy lặp lại được; nếu chạy trên DB local có dữ liệu demo, các tin "Integration Java Backend" sẽ xuất hiện cùng.
+>
+> Test Testcontainers của backend cần Docker đang chạy; máy không có Docker thì các test này tự bỏ qua (CI luôn chạy đủ).
 
 GitHub Actions ([`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml)) chạy 4 job song song trên mỗi PR và push vào `main`: `backend`, `ai-worker`, `frontend`, `integration` — kèm tóm tắt coverage và artifact báo cáo. Nhánh `main` được bảo vệ: phải qua PR và cả 4 job phải xanh mới merge được. Dependabot ([`.github/dependabot.yml`](.github/dependabot.yml)) mở PR cập nhật thư viện hằng tuần.
 
@@ -141,11 +148,14 @@ GitHub Actions ([`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml)) ch
 
 ## Triển khai AWS thật
 
-1. Tạo S3 bucket + SQS queue thật, IAM user có quyền tương ứng.
-2. Đặt biến môi trường cho backend & worker: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`, `SQS_QUEUE`, và **để trống `S3_ENDPOINT`, `SQS_ENDPOINT`** — SDK sẽ tự kết nối AWS thật (code không đổi một dòng).
-3. Database: Amazon RDS PostgreSQL (`DB_HOST`, `DB_USER`, `DB_PASSWORD`).
-4. Deploy: build image từ 2 Dockerfile có sẵn → ECS/Fargate hoặc Elastic Beanstalk; frontend build tĩnh → S3 + CloudFront.
-5. Đổi `JWT_SECRET` và `CORS_ORIGINS` sang giá trị production.
+Backend chạy với **`SPRING_PROFILES_ACTIVE=prod`** ([`application-prod.yml`](backend/src/main/resources/application-prod.yml)). Profile này bỏ mọi giá trị mặc định dành cho dev. Thiếu biến bắt buộc thì backend **từ chối khởi động**, thay vì chạy với secret công khai trong repo.
+
+1. Tạo S3 bucket + SQS queue bằng IaC / console. Ở prod, backend **không tự tạo** (IAM không cần quyền `CreateBucket` / `CreateQueue`).
+2. Quyền AWS: gán **IAM role** cho ECS task / EC2 (`s3:PutObject`, `s3:GetObject`, `s3:DeleteObject`, `sqs:GetQueueUrl`, `sqs:SendMessage`). Để trống `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` → SDK tự dùng role (`DefaultCredentialsProvider`).
+3. Biến bắt buộc: `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` (Amazon RDS PostgreSQL), `JWT_SECRET` (ngẫu nhiên ≥ 32 byte; dùng secret mặc định của dev → không khởi động), `CORS_ORIGINS`, `AWS_REGION`, `S3_BUCKET`, `SQS_QUEUE`.
+4. Tuỳ chọn: `HR_INVITE_CODE` (để trống = tắt đăng ký HR công khai). Nếu chạy sau load balancer, bật `SERVER_FORWARD_HEADERS_STRATEGY=native` để giới hạn đăng nhập theo IP thật của client.
+5. Để trống `S3_ENDPOINT`, `SQS_ENDPOINT` → SDK kết nối AWS thật. Swagger tự tắt ở prod.
+6. Deploy: build image từ 2 Dockerfile có sẵn → ECS/Fargate hoặc Elastic Beanstalk, health check `/actuator/health`; frontend build tĩnh → S3 + CloudFront.
 
 ## Cấu trúc thư mục
 
@@ -163,6 +173,8 @@ docs/        api-spec.md
 
 - **Kiến trúc hướng dịch vụ + xử lý bất đồng bộ**: upload trả về ngay (202 Accepted), AI xử lý nền qua queue — giải thích vì sao (parse + NLP chậm, không được block request).
 - **Cloud-native**: S3/SQS với endpoint override → một codebase chạy cả local lẫn AWS (12-factor config).
-- **Bảo mật**: JWT stateless, phân quyền HR/CANDIDATE bằng `@PreAuthorize`, presigned URL thay vì mở public bucket, validate loại/kích thước file.
+- **Tin cậy của pipeline — Transactional Outbox**: message cho AI worker được ghi vào bảng `outbox_messages` **cùng transaction** với bản ghi CV, rồi `OutboxRelay` mới đẩy sang SQS sau khi commit (`FOR UPDATE SKIP LOCKED` để chạy nhiều instance). Tránh hai lỗi kinh điển của "ghi DB + gửi message": worker nhận message trước khi dữ liệu commit (CV kẹt PENDING), hoặc gửi xong mà commit thất bại.
+- **Toàn vẹn dữ liệu**: schema quản lý bằng Flyway, khoá ngoại + constraint có tên + CHECK; khoá ngoại kép `match_results(cv_id, job_id) → cvs(id, job_id)` đảm bảo kết quả chấm luôn thuộc đúng tin. Sửa JD → tự chấm lại toàn bộ CV của tin.
+- **Bảo mật**: JWT stateless (401 khi hết hạn / 403 khi sai quyền), phân quyền HR/CANDIDATE bằng `@PreAuthorize`, đăng ký HR cần mã mời, chống dò mật khẩu (khoá theo email + IP), email chuẩn hoá, presigned URL thay vì mở public bucket, kiểm tra **nội dung** file (magic bytes PDF / cấu trúc DOCX) chứ không chỉ đuôi, profile `prod` fail-fast khi thiếu secret.
 - **AI giải thích được**: công thức điểm minh bạch, chỉ rõ ưu điểm (nhanh, rẻ, deterministic) và hạn chế (từ điển kỹ năng tĩnh) + hướng phát triển (spaCy NER, embedding similarity, LLM).
 - Vẽ kèm: architecture diagram, sequence diagram luồng nộp CV, ERD 4 bảng.

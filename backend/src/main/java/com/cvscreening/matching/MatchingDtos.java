@@ -17,6 +17,7 @@ public class MatchingDtos {
             String missingSkills,
             String summary,
             Integer yearsExperience,
-            Instant uploadedAt
+            Instant uploadedAt,
+            Instant reviewedAt      // lan cuoi HR doi reviewStatus, null neu chua xet
     ) {}
 }
