@@ -18,7 +18,20 @@ export interface Job {
   createdAt: string;
 }
 
+/** Tin cua HR kem so lieu ung vien (GET /jobs/mine). */
+export interface MyJob extends Job {
+  applicantCount: number;
+  pendingCount: number;
+  strongCount: number;
+  shortlistedCount: number;
+  averageScore: number | null;
+}
+
+/** Trang thai AI xu ly CV. */
 export type CvStatus = 'PENDING' | 'PROCESSED' | 'FAILED';
+
+/** Trang thai HR xu ly ho so. */
+export type ReviewStatus = 'NEW' | 'SHORTLISTED' | 'REJECTED';
 
 export interface MyApplication {
   cvId: number;
@@ -27,6 +40,8 @@ export interface MyApplication {
   fileName: string;
   status: CvStatus;
   score: number | null;
+  matchedSkills: string | null;
+  missingSkills: string | null;
   uploadedAt: string;
 }
 
@@ -36,6 +51,7 @@ export interface CandidateMatch {
   candidateEmail: string;
   fileName: string;
   status: CvStatus;
+  reviewStatus: ReviewStatus;
   score: number | null;
   matchedSkills: string | null;
   missingSkills: string | null;

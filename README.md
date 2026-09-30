@@ -26,7 +26,7 @@
 
 ## Chạy dự án (local)
 
-Yêu cầu: **Docker**, **JDK 17 + Maven**, **Python 3.11+**, **Node 20+**.
+Yêu cầu: **Docker**, **JDK 17+**, **Python 3.11+**, **Node 20+**. Không cần cài Maven: backend có sẵn Maven Wrapper (`mvnw` / `mvnw.cmd`), lần chạy đầu tự tải Maven về.
 
 ### 1. Hạ tầng (PostgreSQL + MinIO + ElasticMQ)
 
@@ -45,8 +45,23 @@ cd backend
 # Postgres trong docker-compose chay o cong 5433 (khong phai 5432 mac dinh) de
 # tranh xung dot voi mot PostgreSQL cai san tren may (rat pho bien tren Windows).
 # Spring Boot khong tu doc file .env nen phai export truc tiep:
-export DB_PORT=5433              # Windows PowerShell: $env:DB_PORT="5433"
-mvn spring-boot:run
+export DB_PORT=5433
+./mvnw spring-boot:run
+```
+
+Trên Windows:
+
+```bat
+:: cmd — de dau ngoac kep bao ca "TEN=GIATRI": neu khong, dau cach cuoi dong
+:: (vd truoc "&&") bi tinh vao gia tri -> "5433 " -> loi "invalid port number"
+set "DB_PORT=5433"
+mvnw spring-boot:run
+```
+
+```powershell
+# PowerShell
+$env:DB_PORT="5433"
+.\mvnw spring-boot:run
 ```
 
 - API: http://localhost:8080 · Swagger: http://localhost:8080/swagger-ui.html
@@ -76,11 +91,21 @@ npm run dev
 
 Mở http://localhost:5173
 
+Kiểm tra chất lượng code frontend:
+
+```bash
+npm run lint   # ESLint
+npm test       # Vitest + Testing Library
+```
+
 ### Kịch bản demo
 
-1. Đăng nhập `candidate@demo.com` → tab **Việc làm** → bấm **Nộp CV**, chọn file PDF/DOCX.
-2. Worker log hiện `Hoan tat CV #...: score=...` sau vài giây.
-3. Đăng nhập `hr@demo.com` → tab **Ứng viên** → thấy ứng viên được xếp hạng theo điểm, kèm kỹ năng trùng khớp / còn thiếu và nhận xét; bấm **Tải CV** để tải file gốc qua presigned URL.
+1. Mở http://localhost:5173 → trang giới thiệu → **Đăng nhập**. Ở môi trường dev có nút **Dùng thử nhanh** điền sẵn tài khoản demo.
+2. Đăng nhập `candidate@demo.com` → **Việc làm** → chọn một tin → kéo thả CV (PDF/DOCX, tối đa 5MB) → **Nộp CV**.
+3. Vòng điểm chuyển từ "đang phân tích" sang điểm thật sau vài giây (tự cập nhật, không cần tải lại). **Đơn của tôi** hiện kỹ năng đã khớp và kỹ năng nên bổ sung.
+4. Đăng nhập `hr@demo.com` → **Tổng quan**: số liệu hồ sơ, đăng / sửa / đóng / mở lại tin.
+5. Bấm **Ứng viên** ở một tin → danh sách xếp hạng theo điểm, lọc theo ngưỡng điểm / trạng thái, tìm theo tên hoặc kỹ năng. Chọn một ứng viên để xem điểm, kỹ năng khớp / thiếu, nhận xét AI, **Xem CV** ngay trong trang (PDF) và đánh dấu **Shortlist** / **Loại**.
+6. Nút mặt trăng / mặt trời trên thanh điều hướng chuyển giao diện sáng / tối.
 
 ## Cách AI chấm điểm
 

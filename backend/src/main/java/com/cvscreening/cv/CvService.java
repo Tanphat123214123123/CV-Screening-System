@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -97,16 +98,37 @@ public class CvService {
                 .findAllById(cvs.stream().map(Cv::getJobId).distinct().toList()).stream()
                 .collect(Collectors.toMap(Job::getId, Job::getTitle));
 
-        Map<Long, Double> scoreByCvId = matchResultRepository
+        Map<Long, MatchResult> resultByCvId = matchResultRepository
                 .findByCvIdIn(cvs.stream().map(Cv::getId).toList()).stream()
-                .collect(Collectors.toMap(MatchResult::getCvId, MatchResult::getScore));
+                .collect(Collectors.toMap(MatchResult::getCvId, Function.identity()));
 
         return cvs.stream()
-                .map(cv -> new MyApplicationResponse(cv.getId(), cv.getJobId(),
-                        jobTitleById.getOrDefault(cv.getJobId(), "(tin da xoa)"),
-                        cv.getFileName(), cv.getStatus().name(),
-                        scoreByCvId.get(cv.getId()), cv.getUploadedAt()))
+                .map(cv -> {
+                    MatchResult result = resultByCvId.get(cv.getId());
+                    return new MyApplicationResponse(cv.getId(), cv.getJobId(),
+                            jobTitleById.getOrDefault(cv.getJobId(), "(tin da xoa)"),
+                            cv.getFileName(), cv.getStatus().name(),
+                            result != null ? result.getScore() : null,
+                            result != null ? result.getMatchedSkills() : null,
+                            result != null ? result.getMissingSkills() : null,
+                            cv.getUploadedAt());
+                })
                 .toList();
+    }
+
+    /** HR tao tin danh dau ho so: NEW / SHORTLISTED / REJECTED. */
+    @Transactional
+    public void updateReviewStatus(Long cvId, ReviewStatus status, User hr) {
+        Cv cv = cvRepository.findById(cvId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Khong tim thay CV"));
+        boolean isOwningHr = jobRepository.findById(cv.getJobId())
+                .map(job -> job.getCreatedBy().equals(hr.getId()))
+                .orElse(false);
+        if (!isOwningHr) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Ban khong co quyen xu ly ho so nay");
+        }
+        cv.setReviewStatus(status);
+        cvRepository.save(cv);
     }
 
     /** Chinh chu CV, hoac HR la nguoi tao ra tin tuyen dung ma CV nay nop vao, moi duoc tai file. */

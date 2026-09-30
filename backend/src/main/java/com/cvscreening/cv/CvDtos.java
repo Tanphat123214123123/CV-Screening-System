@@ -1,5 +1,7 @@
 package com.cvscreening.cv;
 
+import jakarta.validation.constraints.NotNull;
+
 import java.time.Instant;
 
 public class CvDtos {
@@ -8,8 +10,11 @@ public class CvDtos {
 
     public record MyApplicationResponse(
             Long cvId, Long jobId, String jobTitle, String fileName,
-            String status, Double score, Instant uploadedAt
+            String status, Double score, String matchedSkills, String missingSkills,
+            Instant uploadedAt
     ) {}
 
     public record DownloadUrlResponse(String url) {}
+
+    public record ReviewStatusRequest(@NotNull(message = "Trang thai khong duoc de trong") ReviewStatus status) {}
 }

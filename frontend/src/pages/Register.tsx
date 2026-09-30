@@ -1,8 +1,16 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, Briefcase, UserRound } from 'lucide-react';
+import AuthLayout from '../components/layout/AuthLayout';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '../lib/errors';
 import { register } from '../services/authService';
 import type { Role } from '../types';
+
+const roles: { value: Role; label: string; hint: string; Icon: typeof Briefcase }[] = [
+  { value: 'CANDIDATE', label: 'Ứng viên', hint: 'Tìm việc & nộp CV', Icon: UserRound },
+  { value: 'HR', label: 'Nhà tuyển dụng', hint: 'Đăng tin & sàng lọc', Icon: Briefcase },
+];
 
 export default function Register() {
   const [fullName, setFullName] = useState('');
@@ -14,77 +22,102 @@ export default function Register() {
   const { setUser } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (password.length < 6) {
+      setError('Mật khẩu cần tối thiểu 6 ký tự.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      const user = await register(fullName, email, password, role);
+      const user = await register(fullName.trim(), email.trim(), password, role);
       setUser(user);
-      navigate(user.role === 'HR' ? '/hr/jobs' : '/jobs');
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Đăng ký thất bại');
+      navigate(user.role === 'HR' ? '/hr' : '/jobs');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Đăng ký thất bại'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="mx-auto mt-16 max-w-sm">
-      <h1 className="mb-6 text-2xl font-extrabold">Tạo tài khoản</h1>
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-6 shadow-sm">
-        <input
-          placeholder="Họ và tên"
-          autoComplete="name"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          className="w-full rounded-lg border border-ink/20 px-3 py-2 focus:border-moss focus:outline-none"
-        />
-        <input
-          type="email"
-          autoComplete="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-lg border border-ink/20 px-3 py-2 focus:border-moss focus:outline-none"
-        />
-        <input
-          type="password"
-          autoComplete="new-password"
-          placeholder="Mật khẩu (tối thiểu 6 ký tự)"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-lg border border-ink/20 px-3 py-2 focus:border-moss focus:outline-none"
-        />
-        <div className="flex gap-2">
-          {(['CANDIDATE', 'HR'] as Role[]).map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRole(r)}
-              className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold ${
-                role === r ? 'border-moss bg-mint text-moss' : 'border-ink/20 text-ink/60'
-              }`}
-            >
-              {r === 'CANDIDATE' ? 'Ứng viên' : 'Nhà tuyển dụng'}
-            </button>
-          ))}
+    <AuthLayout
+      title={<>Tạo tài khoản <span className="accent-italic">mới</span></>}
+      subtitle="Chỉ mất chưa đến một phút."
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <fieldset>
+          <legend className="field-label">Bạn là</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {roles.map(({ value, label, hint, Icon }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setRole(value)}
+                aria-pressed={role === value}
+                className={`rounded-2xl border-2 p-3.5 text-left transition ${
+                  role === value ? 'border-moss bg-moss/5' : 'border-ink/10 hover:border-ink/25'
+                }`}
+              >
+                <Icon className={`h-5 w-5 ${role === value ? 'text-moss' : 'text-ink/40'}`} aria-hidden="true" />
+                <span className="mt-2 block text-sm font-semibold">{label}</span>
+                <span className="block text-xs text-ink/50">{hint}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        <div>
+          <label htmlFor="reg-name" className="field-label">Họ và tên</label>
+          <input
+            id="reg-name"
+            required
+            autoComplete="name"
+            placeholder="Nguyễn Văn A"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            className="input"
+          />
         </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-moss py-2 font-semibold text-white hover:bg-ink disabled:opacity-50"
-        >
-          {loading ? 'Đang tạo…' : 'Đăng ký'}
+        <div>
+          <label htmlFor="reg-email" className="field-label">Email</label>
+          <input
+            id="reg-email"
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="ban@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="input"
+          />
+        </div>
+        <div>
+          <label htmlFor="reg-password" className="field-label">Mật khẩu</label>
+          <input
+            id="reg-password"
+            type="password"
+            required
+            minLength={6}
+            autoComplete="new-password"
+            aria-describedby="reg-password-hint"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="input"
+          />
+          <p id="reg-password-hint" className="mt-1.5 text-xs text-ink/50">Tối thiểu 6 ký tự.</p>
+        </div>
+        {error && <p role="alert" className="text-sm font-medium text-clay">{error}</p>}
+        <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base">
+          {loading ? 'Đang tạo…' : <>Đăng ký <ArrowRight className="h-4 w-4" aria-hidden="true" /></>}
         </button>
-        <p className="text-center text-sm text-ink/60">
-          Đã có tài khoản?{' '}
-          <Link to="/login" className="font-semibold text-moss hover:underline">
-            Đăng nhập
-          </Link>
-        </p>
       </form>
-    </div>
+      <p className="mt-8 text-sm text-ink/60">
+        Đã có tài khoản?{' '}
+        <Link to="/login" className="font-semibold text-moss underline-offset-4 hover:underline">
+          Đăng nhập
+        </Link>
+      </p>
+    </AuthLayout>
   );
 }

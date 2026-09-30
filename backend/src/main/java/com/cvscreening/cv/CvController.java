@@ -3,10 +3,12 @@ package com.cvscreening.cv;
 import com.cvscreening.cv.CvDtos.CvUploadResponse;
 import com.cvscreening.cv.CvDtos.DownloadUrlResponse;
 import com.cvscreening.cv.CvDtos.MyApplicationResponse;
+import com.cvscreening.cv.CvDtos.ReviewStatusRequest;
 import com.cvscreening.user.User;
 import com.cvscreening.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -44,6 +46,17 @@ public class CvController {
     public List<MyApplicationResponse> myApplications(Authentication auth) {
         User candidate = userService.getByEmail(auth.getName());
         return cvService.getMyApplications(candidate);
+    }
+
+    @PatchMapping("/{id}/review-status")
+    @PreAuthorize("hasRole('HR')")
+    @Operation(summary = "HR danh dau ho so: NEW / SHORTLISTED / REJECTED")
+    public ResponseEntity<Void> updateReviewStatus(@PathVariable Long id,
+                                                   @Valid @RequestBody ReviewStatusRequest request,
+                                                   Authentication auth) {
+        User hr = userService.getByEmail(auth.getName());
+        cvService.updateReviewStatus(id, request.status(), hr);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/download")

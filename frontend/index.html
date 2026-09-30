@@ -3,13 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="TalentSift — AI đọc CV, chấm điểm độ phù hợp và xếp hạng ứng viên cho nhà tuyển dụng." />
     <title>TalentSift — Sàng lọc CV bằng AI</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23122823'/%3E%3Cpath d='M7 12h18l-4 10a3 3 0 0 1-2.8 2h-4.4A3 3 0 0 1 11 22z' fill='none' stroke='%23e2eee7' stroke-width='2'/%3E%3Ccircle cx='13' cy='16' r='1.4' fill='%23e2eee7'/%3E%3Ccircle cx='19' cy='16' r='1.4' fill='%23e2eee7'/%3E%3Ccircle cx='16' cy='28' r='2' fill='%23de9826'/%3E%3C/svg%3E"
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,400..800,0..100,0..1;1,9..144,400..800,0..100,0..1&display=swap"
       rel="stylesheet"
     />
+    <script>
+      // Dat theme truoc khi React render de khong bi nhay mau (flash) khi tai trang
+      (function () {
+        try {
+          var saved = localStorage.getItem('theme');
+          var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

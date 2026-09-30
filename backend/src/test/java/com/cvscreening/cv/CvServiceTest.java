@@ -98,4 +98,32 @@ class CvServiceTest {
         assertThrows(ApiException.class, () -> cvService.getDownloadUrl(5L, hrKhac));
         verifyNoInteractions(s3Service);
     }
+
+    @Test
+    void updateReviewStatus_hrChuTin_luuTrangThai() {
+        Cv cv = Cv.builder().id(5L).fileName("cv.pdf").s3Key("cvs/x.pdf")
+                .candidateId(candidate.getId()).jobId(job.getId()).build();
+        User hrChuTin = User.builder().id(job.getCreatedBy()).role(Role.HR).build();
+        when(cvRepository.findById(5L)).thenReturn(Optional.of(cv));
+        when(jobRepository.findById(job.getId())).thenReturn(Optional.of(job));
+
+        cvService.updateReviewStatus(5L, ReviewStatus.SHORTLISTED, hrChuTin);
+
+        assertEquals(ReviewStatus.SHORTLISTED, cv.getReviewStatus());
+        verify(cvRepository).save(cv);
+    }
+
+    @Test
+    void updateReviewStatus_hrKhac_bao403() {
+        Cv cv = Cv.builder().id(5L).fileName("cv.pdf").s3Key("cvs/x.pdf")
+                .candidateId(candidate.getId()).jobId(job.getId()).build();
+        User hrKhac = User.builder().id(999L).role(Role.HR).build();
+        when(cvRepository.findById(5L)).thenReturn(Optional.of(cv));
+        when(jobRepository.findById(job.getId())).thenReturn(Optional.of(job));
+
+        assertThrows(ApiException.class,
+                () -> cvService.updateReviewStatus(5L, ReviewStatus.REJECTED, hrKhac));
+        assertEquals(ReviewStatus.NEW, cv.getReviewStatus());
+        verify(cvRepository, never()).save(any());
+    }
 }

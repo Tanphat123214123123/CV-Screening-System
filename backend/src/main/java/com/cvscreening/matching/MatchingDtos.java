@@ -11,6 +11,7 @@ public class MatchingDtos {
             String candidateEmail,
             String fileName,
             String status,          // PENDING / PROCESSED / FAILED
+            String reviewStatus,    // NEW / SHORTLISTED / REJECTED (HR xu ly)
             Double score,           // null neu chua xu ly xong
             String matchedSkills,
             String missingSkills,

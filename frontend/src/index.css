@@ -2,6 +2,127 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-paper text-ink antialiased;
+/* ---- Bang mau (kenh RGB de Tailwind ghep opacity) ---- */
+@layer base {
+  :root {
+    --paper: 246 243 236;
+    --surface: 255 254 250;
+    --ink: 22 48 43;
+    --moss: 47 107 94;
+    --mint: 226 238 231;
+    --amber: 222 152 38;
+    --clay: 190 88 60;
+    --forest: 18 40 35;
+    color-scheme: light;
+  }
+
+  .dark {
+    --paper: 12 21 19;
+    --surface: 19 32 29;
+    --ink: 225 235 229;
+    --moss: 112 190 165;
+    --mint: 28 52 46;
+    --amber: 238 178 78;
+    --clay: 229 132 102;
+    --forest: 9 20 18;
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-paper font-sans text-ink antialiased;
+    /* Luoi cham rat nhe + to giay: nen khong bi "phang" nhu template admin */
+    background-image:
+      radial-gradient(rgb(var(--ink) / 0.05) 1px, transparent 1px),
+      radial-gradient(1200px 600px at 100% -10%, rgb(var(--moss) / 0.08), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgb(var(--amber) / 0.07), transparent 60%);
+    background-size: 22px 22px, 100% 100%, 100% 100%;
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3 {
+    @apply font-display;
+    font-optical-sizing: auto;
+    letter-spacing: -0.015em;
+  }
+
+  ::selection {
+    background: rgb(var(--amber) / 0.35);
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-moss ring-offset-2 ring-offset-paper;
+  }
+}
+
+/* ---- Component dung chung ---- */
+@layer components {
+  .card {
+    @apply rounded-2xl border border-ink/[0.07] bg-surface shadow-card;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold
+      transition duration-150 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-moss text-paper hover:bg-ink;
+  }
+  .btn-accent {
+    @apply btn bg-amber text-night hover:brightness-105;
+  }
+  .btn-ghost {
+    @apply btn text-ink/70 hover:bg-ink/[0.06] hover:text-ink;
+  }
+  .btn-outline {
+    @apply btn border border-ink/15 text-ink hover:border-ink/30 hover:bg-ink/[0.03];
+  }
+  .btn-danger {
+    @apply btn border border-clay/30 text-clay hover:bg-clay/10;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-sm font-semibold text-ink/80;
+  }
+  .input {
+    @apply w-full rounded-xl border border-ink/15 bg-surface px-3.5 py-2.5 text-ink transition
+      placeholder:text-ink/35 hover:border-ink/25 focus:border-moss focus:outline-none focus:ring-4 focus:ring-moss/15;
+  }
+  .input[aria-invalid='true'] {
+    @apply border-clay focus:ring-clay/15;
+  }
+
+  .eyebrow {
+    @apply text-xs font-bold uppercase tracking-[0.18em] text-moss;
+  }
+
+  .skeleton {
+    @apply animate-shimmer rounded-lg;
+    background-image: linear-gradient(
+      90deg,
+      rgb(var(--ink) / 0.05) 0%,
+      rgb(var(--ink) / 0.11) 50%,
+      rgb(var(--ink) / 0.05) 100%
+    );
+    background-size: 200% 100%;
+  }
+}
+
+@layer utilities {
+  /* Chu nghieng Fraunces cho tu nhan trong tieu de */
+  .accent-italic {
+    @apply font-display italic text-moss;
+    font-variation-settings: 'SOFT' 100, 'WONK' 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
