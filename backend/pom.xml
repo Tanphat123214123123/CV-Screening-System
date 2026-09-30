@@ -20,7 +20,7 @@
 
     <properties>
         <java.version>17</java.version>
-        <awssdk.version>2.25.31</awssdk.version>
+        <awssdk.version>2.55.6</awssdk.version>
         <jjwt.version>0.13.0</jjwt.version>
     </properties>
 
@@ -167,7 +167,7 @@
                 <!-- Do do phu test: `mvnw verify` sinh bao cao target/site/jacoco/ (CI upload lam artifact) -->
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.12</version>
+                <version>0.8.15</version>
                 <executions>
                     <execution>
                         <goals>
