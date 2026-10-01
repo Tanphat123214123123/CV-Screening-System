@@ -63,7 +63,7 @@ class CvServiceTest {
                 .requiredSkills("Java").createdBy(2L).active(true).build();
 
         when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
-        when(cvRepository.existsByCandidateIdAndJobId(1L, 10L)).thenReturn(false);
+        when(cvRepository.findByCandidateIdAndJobId(1L, 10L)).thenReturn(Optional.empty());
         // TransactionTemplate that: chay callback ngay (khong can DB trong unit test)
         when(transactionTemplate.execute(any())).thenAnswer(inv ->
                 inv.<TransactionCallback<?>>getArgument(0).doInTransaction(null));
@@ -158,12 +158,60 @@ class CvServiceTest {
 
     @Test
     void upload_daNopRoi_bao409_khongUploadS3() {
-        when(cvRepository.existsByCandidateIdAndJobId(1L, 10L)).thenReturn(true);
+        when(cvRepository.findByCandidateIdAndJobId(1L, 10L))
+                .thenReturn(Optional.of(existingCv(CvStatus.PROCESSED)));
 
         var ex = assertThrows(ApiException.class, () -> cvService.upload(TestFiles.pdf("cv.pdf"), 10L, candidate));
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatus());
         verifyNoInteractions(s3Service);
+    }
+
+    // ---------- upload: nop lai khi AI khong doc duoc file cu ----------
+
+    private Cv existingCv(CvStatus status) {
+        return Cv.builder().id(5L).fileName("scan.pdf").s3Key("cvs/old-scan.pdf")
+                .candidateId(1L).jobId(10L).status(status).reviewStatus(ReviewStatus.REJECTED)
+                .reviewedAt(NOW.minusSeconds(3600)).reviewedBy(2L)
+                .uploadedAt(NOW.minusSeconds(86400)).build();
+    }
+
+    @Test
+    void upload_cvCuFailed_choNopLai_capNhatHoSoCu_datLaiTrangThai_xoaFileCu() {
+        Cv failed = existingCv(CvStatus.FAILED);
+        when(cvRepository.findByCandidateIdAndJobId(1L, 10L)).thenReturn(Optional.of(failed));
+        when(cvRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(failed));
+
+        var response = cvService.upload(TestFiles.pdf("cv-moi.pdf"), 10L, candidate);
+
+        assertEquals(5L, response.cvId(), "cap nhat ho so cu, khong tao ban ghi moi (unique ung vien + tin)");
+        verify(cvRepository, never()).save(any());
+        assertEquals(CvStatus.PENDING, failed.getStatus());
+        assertEquals("cv-moi.pdf", failed.getFileName());
+        assertNotEquals("cvs/old-scan.pdf", failed.getS3Key());
+        // Quyet dinh cu cua HR dua tren file hong -> xoa
+        assertEquals(ReviewStatus.NEW, failed.getReviewStatus());
+        assertNull(failed.getReviewedAt());
+        assertNull(failed.getReviewedBy());
+        assertEquals(NOW, failed.getUploadedAt());
+        verify(matchResultRepository).deleteByCvId(5L);
+        verify(outboxService).enqueueCvProcessing(failed);
+        verify(s3Service).deleteQuietly("cvs/old-scan.pdf");
+    }
+
+    @Test
+    void upload_nopLaiCungLuc_requestKiaDaNopXong_bao409_xoaFileVuaUpload() {
+        Cv failedWhenChecked = existingCv(CvStatus.FAILED);
+        when(cvRepository.findByCandidateIdAndJobId(1L, 10L)).thenReturn(Optional.of(failedWhenChecked));
+        // Toi luc khoa dong thi request kia da dua ho so ve PENDING
+        when(cvRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(existingCv(CvStatus.PENDING)));
+
+        var ex = assertThrows(ApiException.class, () -> cvService.upload(TestFiles.pdf("cv.pdf"), 10L, candidate));
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        verify(outboxService, never()).enqueueCvProcessing(any());
+        verify(s3Service).deleteQuietly(startsWith("cvs/"));
+        verify(s3Service, never()).deleteQuietly("cvs/old-scan.pdf");
     }
 
     // ---------- upload: loi sau khi file da len S3 -> luon don file ----------

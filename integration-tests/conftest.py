@@ -104,6 +104,21 @@ def upload(client: Client, job_id: int, name: str, content: bytes, mime: str = D
     return client.post("/cv/upload", data={"jobId": job_id}, files={"file": (name, content, mime)})
 
 
+def hr_view(hr: Client, job_id: int, cv_id: int) -> dict:
+    """Dong ung vien trong man hinh xet duyet cua HR (co diem so - ung vien chi thay fitLevel)."""
+    return next(c for c in hr.get(f"/matching/job/{job_id}").json() if c["cvId"] == cv_id)
+
+
+# PDF hop le ve cau truc (qua kiem tra header o backend) nhung trang trang, khong co chu nao
+# -> AI worker khong trich duoc noi dung -> FAILED. Mo phong CV la anh scan.
+BLANK_PDF = (
+    b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
+    b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+    b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>endobj\n"
+    b"trailer<</Root 1 0 R>>\n%%EOF\n"
+)
+
+
 def wait_until_processed(client: Client, cv_id: int, timeout: int = 90) -> dict:
     """Poll /cv/mine den khi AI worker xu ly xong CV (het PENDING)."""
     deadline = time.time() + timeout

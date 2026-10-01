@@ -97,9 +97,11 @@ class LegacySchemaMigrationTest {
         var result = flyway().migrate();
 
         assertTrue(result.success);
-        assertEquals(2, result.migrationsExecuted);
+        assertEquals(3, result.migrationsExecuted);
         try (Connection c = connect(); Statement s = c.createStatement()) {
             assertEquals("0", single(s, "SELECT count(*) FROM outbox_messages"));
+            // V3: bang tu dien ky nang rong cho toi khi AI worker dong bo
+            assertEquals("0", single(s, "SELECT count(*) FROM skill_keywords"));
         }
     }
 

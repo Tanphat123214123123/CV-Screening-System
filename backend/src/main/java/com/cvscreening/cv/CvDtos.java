@@ -8,10 +8,13 @@ public class CvDtos {
 
     public record CvUploadResponse(Long cvId, String fileName, String status, String message) {}
 
-    /** reviewStatus: ung vien biet ho so da duoc HR shortlist / tu choi hay chua. */
+    /**
+     * reviewStatus: ung vien biet ho so da duoc HR shortlist / tu choi hay chua.
+     * fitLevel (HIGH / MEDIUM / LOW, null khi chua cham) thay cho diem so: xem FitLevel.
+     */
     public record MyApplicationResponse(
             Long cvId, Long jobId, String jobTitle, String fileName,
-            String status, String reviewStatus, Double score, String matchedSkills, String missingSkills,
+            String status, String reviewStatus, String fitLevel, String matchedSkills, String missingSkills,
             Instant uploadedAt
     ) {}
 

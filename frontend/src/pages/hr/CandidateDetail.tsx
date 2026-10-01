@@ -6,31 +6,91 @@ import ScoreRing from '../../components/ui/ScoreRing';
 import SkillChips from '../../components/ui/SkillChips';
 import { ReviewPill } from '../../components/ui/StatusPill';
 import { Skeleton } from '../../components/ui/States';
-import { useReviewStatus } from '../../hooks/queries';
+import { canShortlist } from '../../lib/candidates';
 import { getErrorMessage } from '../../lib/errors';
 import { fileExtension } from '../../lib/file';
 import { formatDate, initials } from '../../lib/format';
-import { isRuleBasedSummary, parseSkills, restoreCase } from '../../lib/skills';
+import { MAX_COUNTED_YEARS, POINTS_PER_YEAR, SKILL_WEIGHT, formatScore, scoreBreakdown } from '../../lib/score';
+import { isRecognizedSkill, isRuleBasedSummary, parseSkills, restoreCase } from '../../lib/skills';
 import { getDownloadUrl } from '../../services/cvService';
 import type { CandidateMatch, ReviewStatus } from '../../types';
 
 interface Props {
   candidate: CandidateMatch;
-  jobId: number;
   requiredSkills: string[];
+  /** Tu dien ky nang cua AI (rong = chua biet) - de chi ra ky nang "thieu" do AI khong nhan dien duoc. */
+  dictionary: string[];
+  onReview: (status: ReviewStatus) => void;
+  reviewPending: boolean;
   onClose: () => void;
+}
+
+function Kbd({ children }: { children: string }) {
+  return (
+    <kbd className="ml-1 hidden rounded border border-current/30 px-1 font-sans text-[10px] font-semibold opacity-60 lg:inline">
+      {children}
+    </kbd>
+  );
+}
+
+function ScoreExplanation({ c }: { c: CandidateMatch }) {
+  if (c.score === null) return null;
+  const b = scoreBreakdown(
+    c.score,
+    parseSkills(c.matchedSkills).length,
+    parseSkills(c.missingSkills).length,
+    c.yearsExperience,
+  );
+  if (!b) return null;
+  const rows = [
+    {
+      label: 'Kỹ năng',
+      points: b.skillPoints,
+      max: SKILL_WEIGHT,
+      detail: `${b.matchedCount}/${b.requiredCount} yêu cầu × ${SKILL_WEIGHT}`,
+    },
+    {
+      label: 'Kinh nghiệm',
+      points: b.experiencePoints,
+      max: MAX_COUNTED_YEARS * POINTS_PER_YEAR,
+      detail: `${b.countedYears} năm × ${POINTS_PER_YEAR} (tính tối đa ${MAX_COUNTED_YEARS} năm)`,
+    },
+  ];
+  return (
+    <section aria-labelledby="score-why" className="rounded-2xl border border-ink/[0.08] p-4">
+      <h3 id="score-why" className="text-base font-semibold">Vì sao {formatScore(c.score)} điểm?</h3>
+      <dl className="mt-3 space-y-3">
+        {rows.map((r) => (
+          <div key={r.label}>
+            <div className="flex items-baseline justify-between text-sm">
+              <dt className="font-medium">{r.label}</dt>
+              <dd>
+                <span className="font-display text-base font-semibold">{formatScore(Math.round(r.points * 10) / 10)}</span>
+                <span className="text-ink/45"> / {r.max}</span>
+              </dd>
+            </div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink/[0.07]">
+              <div className="h-full rounded-full bg-moss" style={{ width: `${(r.points / r.max) * 100}%` }} />
+            </div>
+            <p className="mt-1 text-xs text-ink/50">{r.detail}</p>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
 }
 
 /** Presigned URL song 15 phut -> cache 10 phut la an toan. */
 const URL_STALE_MS = 10 * 60 * 1000;
 
-export default function CandidateDetail({ candidate: c, jobId, requiredSkills, onClose }: Props) {
-  const requiredCount = requiredSkills.length;
+export default function CandidateDetail({ candidate: c, requiredSkills, dictionary, onReview, reviewPending, onClose }: Props) {
   const [preview, setPreview] = useState(false);
-  const review = useReviewStatus(jobId);
   const isPdf = fileExtension(c.fileName) === 'pdf';
   const matched = restoreCase(parseSkills(c.matchedSkills), requiredSkills);
   const missing = restoreCase(parseSkills(c.missingSkills), requiredSkills);
+  // Tong so ky nang luc cham (khop + thieu), khong phai JD hien tai - JD co the vua doi
+  const requiredCount = matched.length + missing.length;
+  const unrecognized = dictionary.length ? missing.filter((s) => !isRecognizedSkill(s, dictionary)) : [];
 
   const cvUrl = useQuery({
     queryKey: ['cv-url', c.cvId],
@@ -38,18 +98,6 @@ export default function CandidateDetail({ candidate: c, jobId, requiredSkills, o
     enabled: preview,
     staleTime: URL_STALE_MS,
   });
-
-  const setReview = (status: ReviewStatus) =>
-    review.mutate(
-      { cvId: c.cvId, status },
-      {
-        onSuccess: () => {
-          const message = { SHORTLISTED: 'Đã thêm vào shortlist', REJECTED: 'Đã loại hồ sơ', NEW: 'Đã đặt lại trạng thái' }[status];
-          toast.success(message, { description: c.candidateName });
-        },
-        onError: (err) => toast.error(getErrorMessage(err, 'Cập nhật thất bại')),
-      },
-    );
 
   const download = async () => {
     try {
@@ -132,16 +180,21 @@ export default function CandidateDetail({ candidate: c, jobId, requiredSkills, o
             {missing.length > 0 && (
               <section>
                 <h3 className="mb-2 text-base font-semibold">Còn thiếu</h3>
-                <SkillChips skills={missing} variant="missing" />
+                <SkillChips
+                  skills={missing}
+                  variant="missing"
+                  flag={(s) => unrecognized.includes(s)}
+                  flagTitle="AI không nhận diện được kỹ năng này"
+                />
+                {unrecognized.length > 0 && (
+                  <p className="mt-2 text-xs text-ink/60">
+                    AI không nhận diện được {unrecognized.join(', ')} nên luôn tính là thiếu — hãy tự kiểm tra trong CV.
+                  </p>
+                )}
               </section>
             )}
 
-            {c.summary && isRuleBasedSummary(c.summary) && (
-              <p className="flex gap-2 rounded-xl bg-ink/[0.04] p-3 text-xs text-ink/55">
-                <Sparkles className="h-4 w-4 shrink-0 text-ink/35" aria-hidden="true" />
-                Đang dùng chấm điểm theo quy tắc. Đặt ANTHROPIC_API_KEY cho AI worker để có nhận xét chi tiết bằng LLM.
-              </p>
-            )}
+            <ScoreExplanation c={c} />
 
             {c.summary && !isRuleBasedSummary(c.summary) && (
               <section className="relative rounded-2xl bg-forest p-5 text-cream">
@@ -157,24 +210,27 @@ export default function CandidateDetail({ candidate: c, jobId, requiredSkills, o
         {/* ---- Hanh dong cua HR ---- */}
         <section aria-label="Xử lý hồ sơ" className="flex flex-wrap gap-2 border-t border-ink/[0.07] pt-5">
           <button
-            onClick={() => setReview(c.reviewStatus === 'SHORTLISTED' ? 'NEW' : 'SHORTLISTED')}
+            onClick={() => onReview(c.reviewStatus === 'SHORTLISTED' ? 'NEW' : 'SHORTLISTED')}
             aria-pressed={c.reviewStatus === 'SHORTLISTED'}
-            // Backend chi cho shortlist ho so AI da cham xong (bo shortlist thi luon duoc)
-            disabled={c.reviewStatus !== 'SHORTLISTED' && c.status !== 'PROCESSED'}
-            title={c.reviewStatus !== 'SHORTLISTED' && c.status !== 'PROCESSED'
-              ? 'Chỉ shortlist được hồ sơ đã được AI chấm điểm xong' : undefined}
+            aria-keyshortcuts="S"
+            disabled={reviewPending || !canShortlist(c)}
+            title={!canShortlist(c) ? 'Chỉ shortlist được hồ sơ đã được AI chấm điểm xong' : undefined}
             className={c.reviewStatus === 'SHORTLISTED' ? 'btn-accent' : 'btn-outline'}
           >
             <Star className={`h-4 w-4 ${c.reviewStatus === 'SHORTLISTED' ? 'fill-current' : ''}`} aria-hidden="true" />
             {c.reviewStatus === 'SHORTLISTED' ? 'Đã shortlist' : 'Shortlist'}
+            <Kbd>S</Kbd>
           </button>
           <button
-            onClick={() => setReview(c.reviewStatus === 'REJECTED' ? 'NEW' : 'REJECTED')}
+            onClick={() => onReview(c.reviewStatus === 'REJECTED' ? 'NEW' : 'REJECTED')}
             aria-pressed={c.reviewStatus === 'REJECTED'}
+            aria-keyshortcuts="X"
+            disabled={reviewPending}
             className={c.reviewStatus === 'REJECTED' ? 'btn bg-clay text-paper' : 'btn-danger'}
           >
             {c.reviewStatus === 'REJECTED' ? <RotateCcw className="h-4 w-4" aria-hidden="true" /> : <Ban className="h-4 w-4" aria-hidden="true" />}
             {c.reviewStatus === 'REJECTED' ? 'Bỏ loại' : 'Loại'}
+            <Kbd>X</Kbd>
           </button>
           <span className="flex-1" />
           {isPdf && (

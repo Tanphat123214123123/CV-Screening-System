@@ -1,3 +1,5 @@
+import type { FitLevel } from '../lib/score';
+
 export type Role = 'HR' | 'CANDIDATE';
 
 export interface AuthUser {
@@ -41,7 +43,8 @@ export interface MyApplication {
   status: CvStatus;
   /** Ket qua HR xet duyet ho so. */
   reviewStatus: ReviewStatus;
-  score: number | null;
+  /** Muc do phu hop (khong co diem so), null khi AI chua cham xong. */
+  fitLevel: FitLevel | null;
   matchedSkills: string | null;
   missingSkills: string | null;
   uploadedAt: string;

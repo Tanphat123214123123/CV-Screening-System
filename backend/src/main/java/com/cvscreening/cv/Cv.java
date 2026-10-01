@@ -54,13 +54,31 @@ public class Cv {
     @Column(nullable = false)
     private Long jobId;
 
+    /** Lan nop gan nhat (nop lai sau khi AI khong doc duoc file se cap nhat). */
     @Builder.Default
-    @Column(nullable = false, updatable = false)
+    @Column(nullable = false)
     private Instant uploadedAt = Instant.now();
 
     /** Dua CV ve hang cho AI cham lai (JD thay doi). */
     public void requeueForScoring() {
         this.status = CvStatus.PENDING;
+    }
+
+    /**
+     * Ung vien nop file moi thay cho file AI khong doc duoc (FAILED): ho so quay ve trang thai ban dau
+     * - cho AI cham lai, xoa quyet dinh cu cua HR (quyet dinh do dua tren file hong).
+     */
+    public void resubmit(String newFileName, String newS3Key, Instant at) {
+        if (this.status != CvStatus.FAILED) {
+            throw new IllegalStateException("Chi nop lai duoc CV FAILED, CV #" + id + " dang " + status);
+        }
+        this.fileName = newFileName;
+        this.s3Key = newS3Key;
+        this.status = CvStatus.PENDING;
+        this.reviewStatus = ReviewStatus.NEW;
+        this.reviewedAt = null;
+        this.reviewedBy = null;
+        this.uploadedAt = at;
     }
 
     public void review(ReviewStatus newStatus, Long reviewerId, Instant at) {

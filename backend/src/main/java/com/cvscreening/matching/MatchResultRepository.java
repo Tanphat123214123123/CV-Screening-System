@@ -16,4 +16,9 @@ public interface MatchResultRepository extends JpaRepository<MatchResult, Long> 
     @Modifying
     @Query("delete from MatchResult m where m.jobId = :jobId")
     int deleteByJobId(@Param("jobId") Long jobId);
+
+    /** Xoa ket qua cu cua mot CV khi ung vien nop lai file khac. */
+    @Modifying
+    @Query("delete from MatchResult m where m.cvId = :cvId")
+    int deleteByCvId(@Param("cvId") Long cvId);
 }

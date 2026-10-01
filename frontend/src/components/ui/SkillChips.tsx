@@ -1,4 +1,4 @@
-import { Check, Plus } from 'lucide-react';
+import { AlertTriangle, Check, Plus } from 'lucide-react';
 
 type Variant = 'matched' | 'missing' | 'neutral';
 
@@ -14,9 +14,12 @@ interface Props {
   /** Hien toi da n chip, phan con lai gom thanh "+k". */
   max?: number;
   size?: 'sm' | 'md';
+  /** Ky nang nao tra ve true se bi danh dau canh bao (vd AI khong nhan dien duoc). */
+  flag?: (skill: string) => boolean;
+  flagTitle?: string;
 }
 
-export default function SkillChips({ skills, variant = 'neutral', max, size = 'md' }: Props) {
+export default function SkillChips({ skills, variant = 'neutral', max, size = 'md', flag, flagTitle }: Props) {
   if (skills.length === 0) return null;
   const visible = max ? skills.slice(0, max) : skills;
   const hidden = skills.length - visible.length;
@@ -24,16 +27,24 @@ export default function SkillChips({ skills, variant = 'neutral', max, size = 'm
 
   return (
     <ul className="flex flex-wrap gap-1.5">
-      {visible.map((skill) => (
-        <li
-          key={skill}
-          className={`inline-flex items-center gap-1 rounded-full border font-medium ${pad} ${styles[variant]}`}
-        >
-          {variant === 'matched' && <Check className="h-3 w-3" aria-hidden="true" />}
-          {variant === 'missing' && <Plus className="h-3 w-3 text-amber" aria-hidden="true" />}
-          {skill}
-        </li>
-      ))}
+      {visible.map((skill) => {
+        const flagged = flag?.(skill) ?? false;
+        return (
+          <li
+            key={skill}
+            title={flagged ? flagTitle : undefined}
+            className={`inline-flex items-center gap-1 rounded-full border font-medium ${pad} ${
+              flagged ? 'border-amber/60 bg-amber/10 text-ink' : styles[variant]
+            }`}
+          >
+            {flagged && <AlertTriangle className="h-3 w-3 text-amber" aria-hidden="true" />}
+            {flagged && flagTitle && <span className="sr-only">{flagTitle}:</span>}
+            {!flagged && variant === 'matched' && <Check className="h-3 w-3" aria-hidden="true" />}
+            {variant === 'missing' && <Plus className="h-3 w-3 text-amber" aria-hidden="true" />}
+            {skill}
+          </li>
+        );
+      })}
       {hidden > 0 && (
         <li
           className={`rounded-full border border-transparent font-medium text-ink/50 ${pad}`}

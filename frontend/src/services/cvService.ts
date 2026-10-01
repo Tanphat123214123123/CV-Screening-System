@@ -8,11 +8,20 @@ export interface UploadCvResponse {
   message: string;
 }
 
-export async function uploadCv(jobId: number, file: File): Promise<UploadCvResponse> {
+/** onProgress: 0-100, phan tram file da gui len server. */
+export async function uploadCv(
+  jobId: number,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<UploadCvResponse> {
   const form = new FormData();
   form.append('file', file);
   form.append('jobId', String(jobId));
-  const { data } = await api.post('/cv/upload', form);
+  const { data } = await api.post('/cv/upload', form, {
+    onUploadProgress: (event) => {
+      if (onProgress && event.total) onProgress(Math.round((event.loaded / event.total) * 100));
+    },
+  });
   return data;
 }
 

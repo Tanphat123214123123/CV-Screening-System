@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import AppShell from './components/layout/AppShell';
 import { useAuth } from './context/AuthContext';
@@ -11,16 +11,16 @@ import JobDetail from './pages/candidate/JobDetail';
 import MyApplications from './pages/candidate/MyApplications';
 import CandidateReview from './pages/hr/CandidateReview';
 import Dashboard from './pages/hr/Dashboard';
+import { homeOf, postLoginPath } from './lib/navigation';
 import type { Role } from './types';
 
 /** Bat truoc hanh vi cua React Router v7 (het canh bao, de nang cap sau nay). */
 export const routerFuture = { v7_startTransition: true, v7_relativeSplatPath: true };
 
-const homeOf = (role: Role) => (role === 'HR' ? '/hr' : '/jobs');
-
 function Protected({ role, children }: { role: Role; children: ReactNode }) {
   const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
   if (user.role !== role) return <Navigate to={homeOf(user.role)} replace />;
   return <>{children}</>;
 }
@@ -28,7 +28,8 @@ function Protected({ role, children }: { role: Role; children: ReactNode }) {
 /** Trang dang nhap/dang ky: da dang nhap roi thi dua ve trang chinh. */
 function GuestOnly({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  return user ? <Navigate to={homeOf(user.role)} replace /> : <>{children}</>;
+  const location = useLocation();
+  return user ? <Navigate to={postLoginPath(location, user.role)} replace /> : <>{children}</>;
 }
 
 function Home() {

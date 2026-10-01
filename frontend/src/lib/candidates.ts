@@ -45,3 +45,17 @@ export function countByReview(list: CandidateMatch[]): Record<ReviewFilter, numb
   for (const c of list) counts[c.reviewStatus] += 1;
   return counts;
 }
+
+/** Shortlist chi khi AI da cham xong (khop quy tac backend); bo shortlist thi luon duoc. */
+export const canShortlist = (c: Pick<CandidateMatch, 'status' | 'reviewStatus'>) =>
+  c.reviewStatus === 'SHORTLISTED' || c.status === 'PROCESSED';
+
+/**
+ * Ho so ke tiep sau khi HR quyet dinh xong ho so hien tai (tu dong chuyen, khoi bam lai danh sach).
+ * Het danh sach thi lui ve ho so truoc; danh sach chi con chinh no thi null.
+ */
+export function nextAfter(list: Pick<CandidateMatch, 'cvId'>[], cvId: number): number | null {
+  const index = list.findIndex((c) => c.cvId === cvId);
+  if (index === -1) return list[0]?.cvId ?? null;
+  return list[index + 1]?.cvId ?? list[index - 1]?.cvId ?? null;
+}

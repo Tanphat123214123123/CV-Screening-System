@@ -1,22 +1,45 @@
-import { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, MousePointerClick, Search, SlidersHorizontal } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { ArrowLeft, Keyboard, MousePointerClick, Search, SlidersHorizontal } from 'lucide-react';
 import ScoreRing from '../../components/ui/ScoreRing';
 import SkillChips from '../../components/ui/SkillChips';
 import { JobStatePill, ReviewPill } from '../../components/ui/StatusPill';
 import { EmptyState, ErrorState, Skeleton } from '../../components/ui/States';
-import { useCandidates, useMyJobs } from '../../hooks/queries';
+import { useCandidates, useMyJobs, useReviewStatus, useSkillDictionary } from '../../hooks/queries';
 import {
+  canShortlist,
   countByReview,
   defaultFilters,
   filterCandidates,
+  nextAfter,
   type CandidateFilters,
   type ReviewFilter,
 } from '../../lib/candidates';
 import { formatRelative } from '../../lib/format';
-import { parseSkills } from '../../lib/skills';
-import type { CandidateMatch } from '../../types';
+import { getErrorMessage } from '../../lib/errors';
+import { isRecognizedSkill, parseSkills } from '../../lib/skills';
+import type { CandidateMatch, ReviewStatus } from '../../types';
 import CandidateDetail from './CandidateDetail';
+
+const shortcuts: [string, string][] = [
+  ['J / K', 'Hồ sơ sau / trước'],
+  ['S', 'Shortlist (bấm lại để bỏ)'],
+  ['X', 'Loại (bấm lại để bỏ loại)'],
+  ['?', 'Hiện / ẩn bảng phím tắt'],
+];
+
+const reviewToast: Record<ReviewStatus, string> = {
+  SHORTLISTED: 'Đã thêm vào shortlist',
+  REJECTED: 'Đã loại hồ sơ',
+  NEW: 'Đã đặt lại trạng thái',
+};
+
+/** Phim tat chi chay khi khong go chu vao o nhap va khong co hop thoai nao dang mo. */
+function isTypingTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  return !!el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
+}
 
 const reviewTabs: { value: ReviewFilter; label: string }[] = [
   { value: 'ALL', label: 'Tất cả' },
@@ -61,9 +84,14 @@ function CandidateRow({ c, rank, selected, onSelect }: {
 export default function CandidateReview() {
   const jobId = Number(useParams().jobId);
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedId = Number(searchParams.get('cv')) || null;
   const [filters, setFilters] = useState<CandidateFilters>(defaultFilters);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const review = useReviewStatus(jobId);
+  const dictionary = useSkillDictionary();
+  const dict = dictionary.data ?? [];
 
   const myJobs = useMyJobs();
   const candidates = useCandidates(Number.isFinite(jobId) ? jobId : null);
@@ -75,8 +103,88 @@ export default function CandidateReview() {
   const selected = all.find((c) => c.cvId === selectedId) ?? null;
   const requiredSkills = parseSkills(job?.requiredSkills);
 
-  const select = (cvId: number | null) =>
-    setSearchParams(cvId ? { cv: String(cvId) } : {}, { replace: true });
+  /**
+   * Lich su trinh duyet: MO chi tiet tu danh sach -> them 1 muc (push), nen tren dien thoai nut Back
+   * dong panel chi tiet thay vi roi trang. Doi qua lai giua cac ho so -> replace (khong day lich su).
+   */
+  const detailPushed = (location.state as { detailPushed?: boolean } | null)?.detailPushed === true;
+  const select = (cvId: number | null) => {
+    if (cvId === null) {
+      if (detailPushed) navigate(-1);
+      else setSearchParams({}, { replace: true });
+      return;
+    }
+    const opening = selectedId === null;
+    setSearchParams(
+      { cv: String(cvId) },
+      opening ? { state: { detailPushed: true } } : { replace: true, state: location.state },
+    );
+  };
+
+  // Desktop: vao trang la thay ngay ho so dau bang (khoi bam them 1 lan). Dien thoai giu danh sach.
+  const firstVisibleId = visible[0]?.cvId;
+  useEffect(() => {
+    const desktop = typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1024px)').matches;
+    if (selectedId === null && firstVisibleId !== undefined && desktop) {
+      setSearchParams({ cv: String(firstVisibleId) }, { replace: true });
+    }
+  }, [selectedId, firstVisibleId, setSearchParams]);
+
+  /** Quyet dinh 1 ho so. Quyet dinh moi (khong phai bo quyet dinh) thi tu chuyen sang ho so ke tiep. */
+  const decide = (c: CandidateMatch, status: ReviewStatus) => {
+    if (status === 'SHORTLISTED' && !canShortlist(c)) {
+      toast.info('Chỉ shortlist được hồ sơ đã được AI chấm điểm xong');
+      return;
+    }
+    const previous = c.reviewStatus;
+    review.mutate(
+      { cvId: c.cvId, status },
+      {
+        onSuccess: () =>
+          toast.success(reviewToast[status], {
+            description: c.candidateName,
+            // Hoan tac thay cho hop xac nhan: thao tac nhanh ma van sua sai duoc
+            action: { label: 'Hoàn tác', onClick: () => review.mutate({ cvId: c.cvId, status: previous }) },
+          }),
+        onError: (err) => toast.error(getErrorMessage(err, 'Cập nhật thất bại')),
+      },
+    );
+    if (status !== 'NEW' && c.cvId === selectedId) {
+      const next = nextAfter(visible, c.cvId);
+      if (next !== null) select(next);
+    }
+  };
+
+  // Phim tat: ref giu ban moi nhat cua handler de listener chi dang ky 1 lan
+  const keyHandler = useRef<(e: KeyboardEvent) => void>(() => {});
+  keyHandler.current = (e: KeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target) || document.querySelector('dialog[open]')) return;
+    const key = e.key.toLowerCase();
+    if (key === '?') {
+      setShowShortcuts((v) => !v);
+      return;
+    }
+    if (key === 'j' || key === 'k') {
+      if (visible.length === 0) return;
+      const index = visible.findIndex((c) => c.cvId === selectedId);
+      const target = key === 'j' ? Math.min(index + 1, visible.length - 1) : Math.max(index - 1, 0);
+      select(visible[index === -1 ? 0 : target].cvId);
+      e.preventDefault();
+      return;
+    }
+    if ((key === 's' || key === 'x') && selected && !review.isPending) {
+      const status: ReviewStatus = key === 's'
+        ? (selected.reviewStatus === 'SHORTLISTED' ? 'NEW' : 'SHORTLISTED')
+        : (selected.reviewStatus === 'REJECTED' ? 'NEW' : 'REJECTED');
+      decide(selected, status);
+      e.preventDefault();
+    }
+  };
+  useEffect(() => {
+    const listener = (e: KeyboardEvent) => keyHandler.current(e);
+    window.addEventListener('keydown', listener);
+    return () => window.removeEventListener('keydown', listener);
+  }, []);
   const update = (patch: Partial<CandidateFilters>) => setFilters((f) => ({ ...f, ...patch }));
   const filtersActive = filters.query !== '' || filters.minScore > 0 || filters.review !== 'ALL';
 
@@ -106,7 +214,12 @@ export default function CandidateReview() {
               <h1 className="mt-2 text-3xl font-semibold leading-tight sm:text-4xl">{job.title}</h1>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="text-xs text-ink/50">AI chấm theo:</span>
-                <SkillChips skills={requiredSkills} size="sm" />
+                <SkillChips
+                  skills={requiredSkills}
+                  size="sm"
+                  flag={(s) => dict.length > 0 && !isRecognizedSkill(s, dict)}
+                  flagTitle="AI không nhận diện được kỹ năng này, mọi CV đều bị tính là thiếu"
+                />
               </div>
             </>
           ) : (
@@ -176,6 +289,15 @@ export default function CandidateReview() {
             />
             <span className="w-8 font-display text-base font-semibold">{filters.minScore}</span>
           </label>
+          <button
+            type="button"
+            onClick={() => setShowShortcuts((v) => !v)}
+            aria-expanded={showShortcuts}
+            aria-controls="review-shortcuts"
+            className="btn-ghost hidden px-3 py-1.5 lg:inline-flex"
+          >
+            <Keyboard className="h-4 w-4" aria-hidden="true" /> Phím tắt
+          </button>
           <label className="flex items-center gap-2 text-sm">
             <span className="sr-only">Sắp xếp</span>
             <select
@@ -189,6 +311,18 @@ export default function CandidateReview() {
           </label>
         </div>
       </div>
+
+      {showShortcuts && (
+        <div id="review-shortcuts" className="card mb-6 hidden animate-fade-up flex-wrap gap-x-8 gap-y-2 px-5 py-4 text-sm lg:flex">
+          {shortcuts.map(([keys, label]) => (
+            <span key={keys} className="flex items-center gap-2">
+              <kbd className="rounded-md border border-ink/15 bg-paper px-1.5 py-0.5 font-sans text-xs font-semibold">{keys}</kbd>
+              <span className="text-ink/65">{label}</span>
+            </span>
+          ))}
+          <span className="text-ink/45">Quyết định xong một hồ sơ sẽ tự chuyển sang hồ sơ kế tiếp.</span>
+        </div>
+      )}
 
       {/* ---- Danh sach + chi tiet ---- */}
       {candidates.isError ? (
@@ -240,8 +374,10 @@ export default function CandidateReview() {
                 <CandidateDetail
                   key={selected.cvId}
                   candidate={selected}
-                  jobId={jobId}
                   requiredSkills={requiredSkills}
+                  dictionary={dict}
+                  onReview={(status) => decide(selected, status)}
+                  reviewPending={review.isPending}
                   onClose={() => select(null)}
                 />
               ) : (
